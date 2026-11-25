@@ -2,6 +2,7 @@
 out/
 build/
 dist/
+release-build/
 *.class
 
 # NetBeans private files

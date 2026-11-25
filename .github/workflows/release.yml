@@ -1,0 +1,225 @@
+name: Release Standalone Builds
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-jar:
+    name: Build Universal JAR
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      app_version: ${{ steps.meta.outputs.app_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            RAW="${{ inputs.version }}"
+            RAW="${RAW#v}"
+            TAG="v${RAW}"
+          else
+            TAG="${{ github.ref_name }}"
+            RAW="${TAG#v}"
+          fi
+          # jpackage requires numeric major.minor.patch
+          APP_VERSION="${RAW%%-*}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compile with Java 8 compatibility and package JAR
+        shell: bash
+        run: |
+          mkdir -p release-build/classes release-build/jar
+          find src -name '*.java' > release-build/sources.txt
+          javac --release 8 -encoding UTF-8 -d release-build/classes @release-build/sources.txt
+          cp -R recursos/. release-build/classes/
+          rm -rf release-build/classes/Sounds/archive_2018
+          jar cfe release-build/jar/SpaceShipsBlaster.jar main.ventana -C release-build/classes .
+          ls -lh release-build/jar/SpaceShipsBlaster.jar
+
+      - name: Upload universal JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-jar
+          path: release-build/jar/SpaceShipsBlaster.jar
+
+  build-native:
+    name: Build Standalone (${{ matrix.label }})
+    needs: build-jar
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS ARM64
+            os: macos-latest
+            platform: macos-arm64
+          - label: Windows x64
+            os: windows-latest
+            platform: windows-x64
+          - label: Linux x64
+            os: ubuntu-latest
+            platform: linux-x64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download universal JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: universal-jar
+          path: release-build/jar
+
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build trimmed Java runtime (jlink)
+        shell: bash
+        run: |
+          jlink \
+            --add-modules java.base,java.desktop \
+            --strip-debug \
+            --no-man-pages \
+            --no-header-files \
+            --compress=zip-6 \
+            --output release-build/runtime
+
+      - name: Package macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p release-build/out release-build/dist
+          jpackage \
+            --type dmg \
+            --name "Space Ships Blaster" \
+            --app-version "${{ needs.build-jar.outputs.app_version }}" \
+            --vendor "Juan Salazar" \
+            --description "Classic Asteroids-inspired 2D space arcade shooter" \
+            --input release-build/jar \
+            --main-jar SpaceShipsBlaster.jar \
+            --main-class main.ventana \
+            --runtime-image release-build/runtime \
+            --icon packaging/icon.icns \
+            --dest release-build/out
+          mv release-build/out/*.dmg "release-build/dist/SpaceShipsBlaster-${{ needs.build-jar.outputs.tag }}-${{ matrix.platform }}.dmg"
+          ls -lh release-build/dist/
+
+      - name: Package Windows standalone ZIP
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-build/out, release-build/dist | Out-Null
+          jpackage `
+            --type app-image `
+            --name "Space Ships Blaster" `
+            --app-version "${{ needs.build-jar.outputs.app_version }}" `
+            --vendor "Juan Salazar" `
+            --description "Classic Asteroids-inspired 2D space arcade shooter" `
+            --input release-build/jar `
+            --main-jar SpaceShipsBlaster.jar `
+            --main-class main.ventana `
+            --runtime-image release-build/runtime `
+            --icon packaging/icon.ico `
+            --dest release-build/out
+          Compress-Archive `
+            -Path "release-build/out/Space Ships Blaster" `
+            -DestinationPath "release-build/dist/SpaceShipsBlaster-${{ needs.build-jar.outputs.tag }}-${{ matrix.platform }}.zip"
+          Get-ChildItem release-build/dist/
+
+      - name: Package Linux standalone tar.gz
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p release-build/out release-build/dist
+          jpackage \
+            --type app-image \
+            --name "Space Ships Blaster" \
+            --app-version "${{ needs.build-jar.outputs.app_version }}" \
+            --vendor "Juan Salazar" \
+            --description "Classic Asteroids-inspired 2D space arcade shooter" \
+            --input release-build/jar \
+            --main-jar SpaceShipsBlaster.jar \
+            --main-class main.ventana \
+            --runtime-image release-build/runtime \
+            --icon packaging/icon.png \
+            --dest release-build/out
+          tar -czf "release-build/dist/SpaceShipsBlaster-${{ needs.build-jar.outputs.tag }}-${{ matrix.platform }}.tar.gz" \
+            -C release-build/out "Space Ships Blaster"
+          ls -lh release-build/dist/
+
+      - name: Upload standalone bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-${{ matrix.platform }}
+          path: release-build/dist/*
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-jar, build-native]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build-jar.outputs.tag }}
+        shell: bash
+        run: |
+          ls -lh release-assets/
+          cat << 'EOF' > release-notes.md
+          ## Space Ships Blaster ${{ needs.build-jar.outputs.tag }}
+
+          ### Standalone Downloads (No Java Required)
+          - **macOS (Apple Silicon):** Download `.dmg`, drag **Space Ships Blaster.app** to Applications. *(First launch on unsigned Mac builds: right-click → **Open**, or run `xattr -cr "/Applications/Space Ships Blaster.app"`.)*
+          - **Windows (x64):** Download `.zip`, extract, and run **`Space Ships Blaster.exe`**.
+          - **Linux (x64):** Download `.tar.gz`, extract, and run **`./Space\ Ships\ Blaster/bin/Space\ Ships\ Blaster`**.
+
+          ### Universal JAR (Requires Java 8+)
+          - Download **`SpaceShipsBlaster.jar`** and run:
+            ```bash
+            java -jar SpaceShipsBlaster.jar
+            ```
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+            gh release edit "$TAG" --notes-file release-notes.md
+          else
+            gh release create "$TAG" release-assets/* \
+              --target "${{ github.sha }}" \
+              --title "Space Ships Blaster $TAG" \
+              --notes-file release-notes.md
+          fi

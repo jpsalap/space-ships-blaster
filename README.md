@@ -55,6 +55,17 @@ cp -R recursos/. out/production/Space_ships/
 java -cp out/production/Space_ships main.ventana
 ```
 
+## Standalone Releases (GitHub Actions)
+
+This repository includes a multi-platform release workflow ([.github/workflows/release.yml](.github/workflows/release.yml)) that automatically builds and publishes standalone packages (no Java required) for **macOS**, **Windows**, and **Linux** plus a universal **Java 8+ `.jar`**:
+
+- **Automatic release via tag:**
+  ```bash
+  git tag v1.0.0
+  git push origin v1.0.0
+  ```
+- **Manual release:** Open the **Actions → Release Standalone Builds → Run workflow** tab on GitHub and enter a version (e.g. `1.0.0`).
+
 ## Project Structure
 
 ```text
