@@ -8,6 +8,7 @@ public class Assets {
     public static BufferedImage playerBlue, playerGreen, playerRed;
     public static BufferedImage life;
     public static BufferedImage lifeBlue, lifeGreen, lifeRed;
+    public static BufferedImage ufo;
     public static BufferedImage prop, prop2;
     public static BufferedImage blueLaser, greenLaser, redLaser;
     public static Font fontTitle, fontBig, fontMed, fontSmall, fontTiny;
@@ -19,15 +20,17 @@ public class Assets {
     public static BufferedImage[] num = new BufferedImage[11];
 
     public static void inicio() {
-        playerBlue = Loader.ImageLoader("/naves/player.png");
-        playerGreen = Loader.ImageLoader("/naves/playerGreen.png");
-        playerRed = Loader.ImageLoader("/naves/playerRed.png");
+        playerBlue = Loader.ImageLoader("/naves/ship_blue.png");
+        playerGreen = Loader.ImageLoader("/naves/ship_green.png");
+        playerRed = Loader.ImageLoader("/naves/ship_red.png");
         jugador = playerBlue;
 
-        lifeBlue = Loader.ImageLoader("/vidas/life.png");
-        lifeGreen = Loader.ImageLoader("/vidas/lifeGreen.png");
-        lifeRed = Loader.ImageLoader("/vidas/lifeRed.png");
+        lifeBlue = Loader.ImageLoader("/vidas/life_blue.png");
+        lifeGreen = Loader.ImageLoader("/vidas/life_green.png");
+        lifeRed = Loader.ImageLoader("/vidas/life_red.png");
         life = lifeBlue;
+
+        ufo = Loader.ImageLoader("/naves/ufo.png");
 
         prop = Loader.ImageLoader("/efectos/fire01.png");
         prop2 = Loader.ImageLoader("/efectos/fire04.png");
@@ -58,7 +61,7 @@ public class Assets {
         fontBig = loadFontWithFallback("/fuente/kenvector_future.ttf", 44, Font.BOLD);
         fontMed = loadFontWithFallback("/fuente/kenvector_future.ttf", 22, Font.BOLD);
         fontSmall = loadFontWithFallback("/fuente/kenvector_future.ttf", 15, Font.PLAIN);
-        fontTiny = loadFontWithFallback("/fuente/kenvector_future.ttf", 12, Font.PLAIN);
+        fontTiny = loadFontWithFallback("/fuente/kenvector_future.ttf", 11, Font.PLAIN);
     }
 
     private static Font loadFontWithFallback(String path, int size, int fallbackStyle) {

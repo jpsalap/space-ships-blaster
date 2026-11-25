@@ -13,8 +13,10 @@ import GameObjects.Asteroid;
 import GameObjects.Constantes;
 import GameObjects.Jugador;
 import GameObjects.Moving_obj;
+import GameObjects.PowerUp;
 import GameObjects.ShipStyle;
 import GameObjects.Size;
+import GameObjects.Ufo;
 import graphics.Animacion;
 import graphics.Assets;
 import graphics.Particle;
@@ -44,16 +46,21 @@ public class Estado_juego {
     private ArrayList<Moving_obj> moving_obj = new ArrayList<Moving_obj>();
     private ArrayList<Animacion> explosiones = new ArrayList<Animacion>();
     private ArrayList<Particle> particles = new ArrayList<Particle>();
+    private ArrayList<PowerUp> powerUps = new ArrayList<PowerUp>();
     private ArrayList<FloatingText> floatingTexts = new ArrayList<FloatingText>();
 
     private int puntaje = 0;
     private int highScore = 0;
     private boolean newHighScore = false;
+    private int nextExtraLifeScore = 1500;
+    private static final int EXTRA_LIFE_STEP = 1500;
+
     public static int lives = 3;
     private int asteroids;
     private int wave = 0;
     private int waveBannerTimer = 0;
     private static final int WAVE_BANNER_DURATION = 110;
+    private int ufoSpawnCooldown = 0;
 
     private ShipStyle shipStyle;
     private boolean paused = false;
@@ -77,7 +84,7 @@ public class Estado_juego {
         player = new Jugador(
             new Vector2D(Constantes.WIDTH / 2 - shipTex.getWidth() / 2, Constantes.HEIGHT / 2 - shipTex.getHeight() / 2),
             new Vector2D(),
-            Constantes.j_vel_max,
+            this.shipStyle.getMaxSpeed(),
             shipTex,
             this,
             this.shipStyle
@@ -92,6 +99,22 @@ public class Estado_juego {
         if (puntaje > highScore) {
             highScore = puntaje;
             newHighScore = true;
+        }
+        while (puntaje >= nextExtraLifeScore) {
+            lives++;
+            nextExtraLifeScore += EXTRA_LIFE_STEP;
+            Sonidos.extraLife.play();
+            floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 125, "+1 EXTRA LIFE!", new Color(110, 255, 140), 90));
+        }
+    }
+
+    public double getWaveSpeedMultiplier() {
+        return 1.0 + Math.min(1.5, (wave - 1) * 0.14);
+    }
+
+    public void addExhaustParticle(Vector2D pos, Vector2D vel, Color color) {
+        if (particles.size() < 220) {
+            particles.add(new Particle(pos, vel, color, 2.2 + Math.random() * 1.8, 12 + (int) (Math.random() * 8)));
         }
     }
 
@@ -108,6 +131,46 @@ public class Estado_juego {
         };
         spawnParticles(center, count, sparkPalette, 1.5, 4.5, 22, 38);
         floatingTexts.add(new FloatingText(center.getX(), center.getY(), "+" + points, new Color(255, 230, 120), 42));
+
+        // Occasional power-up drop from BIG or MED asteroids
+        if ((size == Size.BIG || size == Size.MED) && powerUps.size() < 2 && Math.random() < 0.14) {
+            spawnRandomPowerUp(center);
+        }
+    }
+
+    public void onUfoDestroyed(Vector2D center) {
+        int ufoPoints = 150;
+        addScore(ufoPoints);
+        Sonidos.explosion.play();
+        triggerShake(12, 8.0);
+        Color[] ufoSparks = {
+            new Color(245, 90, 255),
+            new Color(120, 240, 255),
+            Color.WHITE,
+            new Color(255, 180, 255)
+        };
+        spawnParticles(center, 26, ufoSparks, 2.0, 5.5, 26, 44);
+        floatingTexts.add(new FloatingText(center.getX(), center.getY(), "+" + ufoPoints + " UFO!", new Color(245, 130, 255), 65));
+
+        if (powerUps.size() < 2 && Math.random() < 0.55) {
+            spawnRandomPowerUp(center);
+        }
+    }
+
+    public void onShieldAbsorb(Vector2D center) {
+        Sonidos.powerUp.play();
+        triggerShake(6, 4.0);
+        Color[] shieldSparks = {
+            new Color(90, 235, 255),
+            Color.WHITE,
+            new Color(150, 250, 255)
+        };
+        spawnParticles(center, 16, shieldSparks, 1.8, 4.5, 16, 28);
+    }
+
+    private void spawnRandomPowerUp(Vector2D center) {
+        PowerUp.Type type = Math.random() < 0.5 ? PowerUp.Type.SHIELD : PowerUp.Type.RAPID_FIRE;
+        powerUps.add(new PowerUp(new Vector2D(center.getX(), center.getY()), type));
     }
 
     public void onPlayerHit(Vector2D center, Color shipAccent) {
@@ -159,16 +222,51 @@ public class Estado_juego {
             default:
                 return;
         }
+        double speedScale = getWaveSpeedMultiplier();
         for (int i = 0; i < size.cantidad; i++) {
             moving_obj.add(new Asteroid(
                 new Vector2D(asteroid.getPosicion().getX(), asteroid.getPosicion().getY()),
                 new Vector2D(0, 1).setDireccion(Math.random() * Math.PI * 2),
-                Constantes.vaste * Math.random() + 1,
+                (Constantes.vaste * Math.random() + 1) * speedScale,
                 texturas[(int) (Math.random() * texturas.length)],
                 this,
                 newSize
             ));
         }
+    }
+
+    private Vector2D findSafeEdgeSpawn(int spriteW, int spriteH) {
+        Vector2D playerCenter = (player != null) ? player.getCenter() : new Vector2D(Constantes.WIDTH / 2.0, Constantes.HEIGHT / 2.0);
+        double minSafeDist = 240.0;
+        Vector2D best = new Vector2D(0, 0);
+        double bestDist = -1;
+
+        for (int attempt = 0; attempt < 20; attempt++) {
+            int edge = (int) (Math.random() * 4);
+            double x, y;
+            if (edge == 0) {
+                x = Math.random() * Constantes.WIDTH;
+                y = -spriteH * 0.5;
+            } else if (edge == 1) {
+                x = Math.random() * Constantes.WIDTH;
+                y = Constantes.HEIGHT - spriteH * 0.5;
+            } else if (edge == 2) {
+                x = -spriteW * 0.5;
+                y = Math.random() * Constantes.HEIGHT;
+            } else {
+                x = Constantes.WIDTH - spriteW * 0.5;
+                y = Math.random() * Constantes.HEIGHT;
+            }
+            double d = new Vector2D(x + spriteW / 2.0, y + spriteH / 2.0).substract(playerCenter).getMagni();
+            if (d >= minSafeDist) {
+                return new Vector2D(x, y);
+            }
+            if (d > bestDist) {
+                bestDist = d;
+                best = new Vector2D(x, y);
+            }
+        }
+        return best;
     }
 
     private void startWave() {
@@ -177,21 +275,32 @@ public class Estado_juego {
         if (wave > 1) {
             Sonidos.wave.play();
         }
-        double x, y;
+        if (wave >= 3) {
+            ufoSpawnCooldown = 260 + (int) (Math.random() * 180);
+        }
+        double speedScale = getWaveSpeedMultiplier();
         for (int i = 0; i < asteroids; i++) {
-            x = i % 2 == 0 ? Math.random() * Constantes.WIDTH : 0;
-            y = i % 2 == 0 ? 0 : Math.random() * Constantes.HEIGHT;
             BufferedImage textura = Assets.met_g[(int) (Math.random() * Assets.met_g.length)];
+            Vector2D pos = findSafeEdgeSpawn(textura.getWidth(), textura.getHeight());
             moving_obj.add(new Asteroid(
-                new Vector2D(x, y),
+                pos,
                 new Vector2D(0, 1).setDireccion(Math.random() * Math.PI * 2),
-                Constantes.vaste * Math.random() + 1,
+                (Constantes.vaste * Math.random() + 1) * speedScale,
                 textura,
                 this,
                 Size.BIG
             ));
         }
         asteroids++;
+    }
+
+    private boolean hasActiveUfo() {
+        for (Moving_obj obj : moving_obj) {
+            if (obj instanceof Ufo) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void playExplosion(Vector2D posicion) {
@@ -227,6 +336,17 @@ public class Estado_juego {
             waveBannerTimer--;
         }
 
+        // Spawn enemy UFO periodically on Wave 3+
+        if (!gameOver && wave >= 3 && !hasActiveUfo()) {
+            ufoSpawnCooldown--;
+            if (ufoSpawnCooldown <= 0) {
+                boolean fromLeft = Math.random() < 0.5;
+                double y = 90 + Math.random() * (Constantes.HEIGHT - 200);
+                moving_obj.add(new Ufo(fromLeft, y, wave, this));
+                ufoSpawnCooldown = Math.max(480, 960 - (wave - 3) * 70);
+            }
+        }
+
         for (Moving_obj obj : new ArrayList<Moving_obj>(moving_obj)) {
             if (moving_obj.contains(obj)) {
                 obj.update();
@@ -244,6 +364,21 @@ public class Estado_juego {
             p.update();
             if (!p.isAlive()) {
                 particles.remove(i);
+            }
+        }
+        for (int i = powerUps.size() - 1; i >= 0; i--) {
+            PowerUp pu = powerUps.get(i);
+            pu.update();
+            if (!pu.isAlive()) {
+                powerUps.remove(i);
+                continue;
+            }
+            if (!gameOver && player != null && moving_obj.contains(player)) {
+                double dist = pu.getCenter().substract(player.getCenter()).getMagni();
+                if (dist < PowerUp.RADIUS + 26) {
+                    applyPowerUp(pu);
+                    powerUps.remove(i);
+                }
             }
         }
         for (int i = floatingTexts.size() - 1; i >= 0; i--) {
@@ -279,12 +414,29 @@ public class Estado_juego {
         startWave();
     }
 
+    private void applyPowerUp(PowerUp pu) {
+        Sonidos.powerUp.play();
+        if (pu.getType() == PowerUp.Type.SHIELD) {
+            player.activateShield();
+        } else {
+            player.activateRapidFire();
+        }
+        floatingTexts.add(new FloatingText(
+            pu.getCenter().getX(),
+            pu.getCenter().getY(),
+            pu.getType().label + "!",
+            pu.getType().color,
+            60
+        ));
+    }
+
     public void draw(Graphics g) {
         Graphics2D G2D = (Graphics2D) g;
         Font prevFont = G2D.getFont();
         Color prevColor = G2D.getColor();
         AffineTransform prevTransform = G2D.getTransform();
 
+        G2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         G2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
@@ -295,11 +447,14 @@ public class Estado_juego {
             G2D.translate(dx, dy);
         }
 
-        for (int i = 0; i < moving_obj.size(); i++) {
-            moving_obj.get(i).draw(g);
+        for (int i = 0; i < powerUps.size(); i++) {
+            powerUps.get(i).draw(G2D);
         }
         for (int i = 0; i < particles.size(); i++) {
             particles.get(i).draw(G2D);
+        }
+        for (int i = 0; i < moving_obj.size(); i++) {
+            moving_obj.get(i).draw(g);
         }
         for (int i = 0; i < explosiones.size(); i++) {
             explosiones.get(i).draw(G2D);
@@ -307,7 +462,7 @@ public class Estado_juego {
         for (int i = 0; i < floatingTexts.size(); i++) {
             FloatingText ft = floatingTexts.get(i);
             int alpha = Math.min(255, Math.max(0, (int) (255.0 * ft.life / ft.maxLife)));
-            G2D.setFont(Assets.fontTiny);
+            G2D.setFont(Assets.fontSmall);
             G2D.setColor(new Color(ft.color.getRed(), ft.color.getGreen(), ft.color.getBlue(), alpha));
             FontMetrics fm = G2D.getFontMetrics();
             G2D.drawString(ft.text, (int) (ft.x - fm.stringWidth(ft.text) / 2.0), (int) ft.y);
@@ -318,6 +473,7 @@ public class Estado_juego {
 
         puntajes(G2D);
         vidas(G2D);
+        drawPowerUpBars(G2D);
         drawWaveHud(G2D);
 
         if (waveBannerTimer > 0 && !gameOver) {
@@ -332,6 +488,31 @@ public class Estado_juego {
 
         G2D.setFont(prevFont);
         G2D.setColor(prevColor);
+    }
+
+    private void drawPowerUpBars(Graphics2D g2d) {
+        if (player == null || gameOver) return;
+        int x = 25;
+        int y = 66;
+        if (player.hasShield()) {
+            drawStatusBar(g2d, x, y, "SHIELD", player.getShieldRatio(), PowerUp.Type.SHIELD.color);
+            y += 24;
+        }
+        if (player.hasRapidFire()) {
+            drawStatusBar(g2d, x, y, "RAPID FIRE", player.getRapidFireRatio(), PowerUp.Type.RAPID_FIRE.color);
+        }
+    }
+
+    private void drawStatusBar(Graphics2D g2d, int x, int y, String label, float ratio, Color c) {
+        int barW = 105;
+        int barH = 7;
+        g2d.setFont(Assets.fontTiny);
+        g2d.setColor(c);
+        g2d.drawString(label, x, y);
+        g2d.setColor(new Color(20, 28, 48, 190));
+        g2d.fillRoundRect(x, y + 4, barW, barH, 4, 4);
+        g2d.setColor(c);
+        g2d.fillRoundRect(x, y + 4, Math.max(2, (int) (barW * ratio)), barH, 4, 4);
     }
 
     private void drawWaveHud(Graphics2D g2d) {
@@ -362,6 +543,11 @@ public class Estado_juego {
         drawCenteredString(g2d, "WAVE " + wave, 192);
         g2d.setColor(new Color(255, 255, 255, alpha));
         drawCenteredString(g2d, "WAVE " + wave, 190);
+        if (wave == 3) {
+            g2d.setFont(Assets.fontSmall);
+            g2d.setColor(new Color(245, 115, 255, alpha));
+            drawCenteredString(g2d, "WARNING: ALIEN SAUCERS DETECTED", 224);
+        }
     }
 
     private void drawPaused(Graphics2D g2d) {
@@ -422,29 +608,14 @@ public class Estado_juego {
         g2d.drawString(text, x, y);
     }
 
-    public boolean isPaused() {
-        return paused;
-    }
-
-    public boolean isGameOver() {
-        return gameOver;
-    }
-
-    public boolean shouldRestart() {
-        return gameOver && restartArmed && (Keyboard.enter || Keyboard.shoot);
-    }
-
-    public boolean shouldReturnToTitle() {
-        return returnToTitle;
-    }
-
-    public int getHighScore() {
-        return highScore;
-    }
-
-    public int getPuntaje() {
-        return puntaje;
-    }
+    public boolean isPaused() { return paused; }
+    public boolean isGameOver() { return gameOver; }
+    public boolean shouldRestart() { return gameOver && restartArmed && (Keyboard.enter || Keyboard.shoot); }
+    public boolean shouldReturnToTitle() { return returnToTitle; }
+    public int getHighScore() { return highScore; }
+    public int getPuntaje() { return puntaje; }
+    public int getWave() { return wave; }
+    public ArrayList<PowerUp> getPowerUps() { return powerUps; }
 
     public Vector2D getPlayerVelocity() {
         if (player != null && moving_obj.contains(player)) {
@@ -455,14 +626,14 @@ public class Estado_juego {
 
     private void vidas(Graphics2D g) {
         int x = 25;
-        int y = 24;
+        int y = 20;
         g.drawImage(shipStyle.getLifeTexture(), x, y, null);
-        g.drawImage(Assets.num[10], x + 40, y + 5, null);
+        g.drawImage(Assets.num[10], x + 40, y + 7, null);
         String liveToString = Integer.toString(Math.max(0, lives));
         int dx = x + 62;
         for (int i = 0; i < liveToString.length(); i++) {
             int numero = Integer.parseInt(liveToString.substring(i, i + 1));
-            g.drawImage(Assets.num[numero], dx, y + 5, null);
+            g.drawImage(Assets.num[numero], dx, y + 7, null);
             dx += 20;
         }
     }
@@ -472,7 +643,7 @@ public class Estado_juego {
         int digitStep = 20;
         int totalWidth = scoreToString.length() * digitStep;
         int startX = Constantes.WIDTH - 25 - totalWidth;
-        int y = 26;
+        int y = 24;
         for (int i = 0; i < scoreToString.length(); i++) {
             g.drawImage(Assets.num[Integer.parseInt(scoreToString.substring(i, i + 1))], startX + i * digitStep, y, null);
         }
@@ -485,13 +656,8 @@ public class Estado_juego {
         }
     }
 
-    public ArrayList<Moving_obj> getMoving_obj() {
-        return moving_obj;
-    }
-
-    public Jugador getJugador() {
-        return player;
-    }
+    public ArrayList<Moving_obj> getMoving_obj() { return moving_obj; }
+    public Jugador getJugador() { return player; }
 
     public void restarvida() {
         if (lives > 0) {

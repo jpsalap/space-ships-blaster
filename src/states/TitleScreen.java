@@ -113,31 +113,29 @@ public class TitleScreen {
 
         // Title with glow
         g2d.setFont(Assets.fontTitle);
-        String title = "SPACE SHIPS";
-        String subtitle = "BLASTER";
-        drawGlowingCentered(g2d, title, 130, accent, Color.WHITE);
+        drawGlowingCentered(g2d, "SPACE SHIPS", 112, accent, Color.WHITE);
         g2d.setFont(Assets.fontBig);
-        drawGlowingCentered(g2d, subtitle, 185, accent, accent.brighter());
+        drawGlowingCentered(g2d, "BLASTER", 164, accent, accent.brighter());
 
         if (highScore > 0) {
             g2d.setFont(Assets.fontSmall);
             g2d.setColor(new Color(255, 215, 90));
-            drawCentered(g2d, "HIGH SCORE: " + highScore, 224);
+            drawCentered(g2d, "HIGH SCORE: " + highScore, 200);
         }
 
         // Ship picker header
         g2d.setFont(Assets.fontSmall);
         g2d.setColor(new Color(195, 210, 235));
-        drawCentered(g2d, "SELECT YOUR SHIP  -  LEFT / RIGHT ARROWS", 272);
+        drawCentered(g2d, "SELECT YOUR STARFIGHTER  -  LEFT / RIGHT ARROWS", 242);
 
-        // 3 ship cards
+        // 3 ship cards with stat bars
         ShipStyle[] styles = ShipStyle.values();
-        int cardW = 195;
-        int cardH = 190;
-        int gap = 36;
+        int cardW = 225;
+        int cardH = 248;
+        int gap = 30;
         int totalW = styles.length * cardW + (styles.length - 1) * gap;
         int startX = (Constantes.WIDTH - totalW) / 2;
-        int cardY = 290;
+        int cardY = 262;
 
         for (int i = 0; i < styles.length; i++) {
             ShipStyle style = styles[i];
@@ -147,7 +145,7 @@ public class TitleScreen {
             Color c = style.getAccentColor();
 
             // Card background
-            g2d.setColor(isSel ? new Color(c.getRed(), c.getGreen(), c.getBlue(), 45) : new Color(12, 16, 32, 145));
+            g2d.setColor(isSel ? new Color(c.getRed(), c.getGreen(), c.getBlue(), 42) : new Color(12, 16, 32, 150));
             g2d.fillRoundRect(cx, cardY, cardW, cardH, 18, 18);
 
             // Card border
@@ -158,28 +156,38 @@ public class TitleScreen {
             // Laser preview cleanly above ship nose
             BufferedImage laserImg = style.getLaserTexture();
             int bob = isSel ? (int) (Math.sin(tick * 0.1) * 3) : 0;
-            int laserH = 38;
-            g2d.drawImage(laserImg, midX - laserImg.getWidth() / 2, cardY + 18 + bob, laserImg.getWidth(), laserH, null);
+            int laserH = 34;
+            g2d.drawImage(laserImg, midX - laserImg.getWidth() / 2, cardY + 14 + bob, laserImg.getWidth(), laserH, null);
 
             // Ship sprite
             BufferedImage shipImg = style.getShipTexture();
-            double scale = isSel ? 1.45 : 1.15;
+            double scale = isSel ? 1.22 : 1.02;
             int sw = (int) (shipImg.getWidth() * scale);
             int sh = (int) (shipImg.getHeight() * scale);
-            g2d.drawImage(shipImg, midX - sw / 2, cardY + 106 - sh / 2 + bob, sw, sh, null);
+            g2d.drawImage(shipImg, midX - sw / 2, cardY + 95 - sh / 2 + bob, sw, sh, null);
 
-            // Ship label
-            g2d.setFont(Assets.fontTiny);
-            g2d.setColor(isSel ? Color.WHITE : new Color(150, 165, 190));
+            // Ship name & role tag
+            g2d.setFont(Assets.fontSmall);
+            g2d.setColor(isSel ? Color.WHITE : new Color(165, 180, 205));
             FontMetrics fm = g2d.getFontMetrics();
-            g2d.drawString(style.getDisplayName(), midX - fm.stringWidth(style.getDisplayName()) / 2, cardY + cardH - 18);
+            g2d.drawString(style.getDisplayName(), midX - fm.stringWidth(style.getDisplayName()) / 2, cardY + 150);
+
+            g2d.setFont(Assets.fontTiny);
+            g2d.setColor(isSel ? c.brighter() : new Color(120, 135, 165));
+            FontMetrics fmTiny = g2d.getFontMetrics();
+            g2d.drawString(style.getRoleTag(), midX - fmTiny.stringWidth(style.getRoleTag()) / 2, cardY + 168);
+
+            // Stat bars: SPD, FIRE, TURN
+            drawStatRow(g2d, cx + 22, cardY + 188, "SPD", style.getSpeedRating(), c, isSel);
+            drawStatRow(g2d, cx + 22, cardY + 207, "FIRE", style.getFireRating(), c, isSel);
+            drawStatRow(g2d, cx + 22, cardY + 226, "TURN", style.getAgilityRating(), c, isSel);
         }
 
         // Pulsing Start Prompt
         int pulseAlpha = 140 + (int) (115 * (0.5 + 0.5 * Math.sin(tick * 0.08)));
         g2d.setFont(Assets.fontMed);
         g2d.setColor(new Color(255, 255, 255, pulseAlpha));
-        drawCentered(g2d, "PRESS ENTER OR SPACE TO PLAY", 545);
+        drawCentered(g2d, "PRESS ENTER OR SPACE TO PLAY", 568);
 
         // Controls footer
         g2d.setFont(Assets.fontTiny);
@@ -192,6 +200,26 @@ public class TitleScreen {
         g2d.setFont(prevFont);
         g2d.setColor(prevColor);
         g2d.setStroke(prevStroke);
+    }
+
+    private void drawStatRow(Graphics2D g2d, int x, int y, String label, int rating, Color accent, boolean selected) {
+        g2d.setFont(Assets.fontTiny);
+        g2d.setColor(selected ? new Color(210, 222, 240) : new Color(130, 145, 170));
+        g2d.drawString(label, x, y);
+
+        int barX = x + 58;
+        int segW = 20;
+        int segH = 7;
+        int segGap = 5;
+        for (int s = 0; s < 5; s++) {
+            int sx = barX + s * (segW + segGap);
+            if (s < rating) {
+                g2d.setColor(selected ? accent : new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 130));
+            } else {
+                g2d.setColor(new Color(45, 55, 78, 160));
+            }
+            g2d.fillRoundRect(sx, y - 8, segW, segH, 3, 3);
+        }
     }
 
     private void drawGlowingCentered(Graphics2D g2d, String text, int y, Color glow, Color fill) {

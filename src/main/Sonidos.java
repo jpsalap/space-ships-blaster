@@ -7,13 +7,16 @@ import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 
 public class Sonidos {
-    public static final Sonido Disparo = new Sonido("/Sounds/disparo.wav", 5, -4.0f);
-    public static final Sonido propulsor = new Sonido("/Sounds/propulsor.wav", 1, -8.0f);
+    public static final Sonido Disparo = new Sonido("/Sounds/disparo.wav", 6, -4.0f);
+    public static final Sonido propulsor = new Sonido("/Sounds/propulsor.wav", 1, -1.5f);
     public static final Sonido explosion = new Sonido("/Sounds/explosion.wav", 5, -3.0f);
     public static final Sonido playerHit = new Sonido("/Sounds/player_hit.wav", 2, -2.0f);
     public static final Sonido wave = new Sonido("/Sounds/wave.wav", 2, -4.0f);
     public static final Sonido gameOver = new Sonido("/Sounds/gameover.wav", 1, -3.0f);
-    public static final Sonido espacio = new Sonido("/Sounds/espacio.wav", 1, -11.0f);
+    public static final Sonido ufoLaser = new Sonido("/Sounds/ufo_laser.wav", 4, -3.5f);
+    public static final Sonido powerUp = new Sonido("/Sounds/powerup.wav", 3, -3.0f);
+    public static final Sonido extraLife = new Sonido("/Sounds/extralife.wav", 2, -2.5f);
+    public static final Sonido espacio = new Sonido("/Sounds/espacio.wav", 1, -7.0f);
 
     private static volatile boolean muted = false;
 

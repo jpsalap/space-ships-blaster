@@ -2,22 +2,28 @@
 
 A classic Asteroids-inspired 2D arcade shooter written in pure Java (AWT / Swing) with zero external dependencies.
 
-Originally built in **2018** as a freshman-year *Algorithms & Programming* final project in NetBeans, and restored & polished in **2026** to run cleanly on modern Java with a title screen, ship selector, cosmic nebula starfield, and retro arcade audio.
+Originally built in **2018** as a freshman-year *Algorithms & Programming* final project in NetBeans, and restored & expanded in **2026** to run cleanly on modern Java with distinct playable starfighters, cosmic space visuals, enemy UFOs, power-ups, and ethereal ambient space audio.
 
 ## Features
 
-- **Title Screen & Ship Picker**: Choose between **Cyber Blue**, **Venom Green**, and **Crimson Red** ships—each with matching laser beams and HUD life icons.
-- **Deep Space Visuals**: Pre-rendered cosmic nebula backdrop paired with a 3-layer twinkling parallax starfield that reacts to your ship's velocity.
-- **Custom 60 FPS Game Loop**: Triple-buffered `java.awt.Canvas` (`BufferStrategy`), `Graphics2D` affine transforms, flickering twin thruster flames, centered explosions, glowing spark particles, floating score popups, and subtle screen shake.
-- **Escalating Asteroid Waves**: 4 asteroid sizes (`BIG` → `MED` → `SMALL` → `TINY`) with size-scaled points, smooth edge wrap-around, and fading wave banners.
-- **Retro Arcade Audio**: Cohesive synthesized SFX (pooled laser & explosion clips so rapid sounds overlap cleanly, click-free thruster loop, player hit, wave chime, game-over synth, and looping synthwave space track) plus a mute toggle (`M`). The original 2018 Reason `.wav` recordings are preserved in `recursos/Sounds/archive_2018/`.
-- **Pause & Game Over Flows**: Pause anytime (`P` / `Esc`), session High Score tracking, and quick restart or return to the ship picker.
+- **Title Screen & Starfighter Picker**: Choose from **3 distinct starfighters**, each with its own hull design, matching laser color, matching HUD life icon, and flight characteristics:
+  - **Interceptor (Blue)** — *Balanced* speed, agility, and fire rate.
+  - **Viper (Green)** — *High Speed* & razor-sharp turning.
+  - **Striker (Red)** — *Rapid Fire* twin-cannon gunship.
+- **Deep Space Visuals & Dynamic Thrust**: Pre-rendered cosmic nebula backdrop, 3-layer twinkling parallax starfield, animated glowing plasma thruster jets with trailing exhaust sparks, centered explosions, glowing debris particles, floating score popups, and subtle camera shake.
+- **Difficulty Progression**:
+  - Escalating asteroid waves with gradual speed scaling and safe edge spawns away from the player.
+  - **Enemy Alien UFOs** appear starting at **Wave 3+**, weaving across space and firing aimed plasma bolts (+150 pts when destroyed).
+  - **Power-Up Drops**: Collect temporary **Shield** (`S`) and **Rapid Fire** (`R`) pickups with live HUD duration bars.
+  - **Bonus Extra Lives**: Earn `+1` extra life every **1,500 points**.
+- **Atmospheric Space Audio**: Ethereal, mysterious ambient deep-space room tone (`espacio.wav`), clearly audible click-free ion thruster loop (`propulsor.wav`), pooled SFX for lasers, explosions, UFO shots, power-ups, wave clears, extra lives, and Game Over—plus a mute toggle (`M`). Original 2018 Reason `.wav` files are archived in `recursos/Sounds/archive_2018/`.
+- **Pause & Game Over Flows**: Pause anytime (`P` / `Esc`), session High Score tracking, instant restart, or quick return to the starfighter picker (`T`).
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| `←` / `→` | Rotate ship *(or select ship on Title Screen)* |
+| `←` / `→` | Rotate ship *(or select starfighter on Title Screen)* |
 | `↑` | Thrust forward |
 | `Space` | Fire laser *(or start / restart)* |
 | `Enter` | Start game / Restart / Return to Title *(from Pause)* |
@@ -51,20 +57,19 @@ java -cp out/production/Space_ships main.ventana
 Space_ships/
 ├── src/
 │   ├── main/           # Entry point, JFrame window, game loop (ventana) & pooled audio (Sonidos)
-│   ├── states/         # TitleScreen (ship picker) & Estado_juego (waves, HUD, pause, game over)
-│   ├── GameObjects/    # Jugador, ShipStyle, Asteroid, Laser, Moving_obj, Constantes & Crono
+│   ├── states/         # TitleScreen (starfighter picker) & Estado_juego (waves, HUD, pause, game over)
+│   ├── GameObjects/    # Jugador, ShipStyle, Ufo, PowerUp, Asteroid, Laser, Moving_obj, Constantes & Crono
 │   ├── graphics/       # Starfield, Particle, Assets, Loader & centered Animacion
 │   ├── input/          # Edge-triggered Keyboard listener
 │   └── math/           # 2D vector math utilities (Vector2D)
 ├── recursos/
-│   ├── naves/          # Blue, Green, and Red ship sprites
+│   ├── naves/          # Distinct Blue, Green, Red starfighters, UFO sprite (+ original 2018 player.png)
 │   ├── lasers/         # Matching Blue, Green, and Red laser sprites
 │   ├── vidas/          # Matching Blue, Green, and Red HUD life icons
 │   ├── asteroids/      # Big, Medium, Small, and Tiny asteroid sprites
-│   ├── efectos/        # Twin thruster flame sprites (fire01, fire04)
 │   ├── explosion/      # 9-frame explosion animation
 │   ├── fuente/         # kenvector_future.ttf arcade font
-│   └── Sounds/         # Retro arcade WAVs (+ archive_2018/ for original Reason audio)
+│   └── Sounds/         # Ethereal ambient space & arcade SFX (+ archive_2018/ for original Reason audio)
 ├── Space_ships.iml     # IntelliJ IDEA module configuration
 └── nbproject/          # Original 2018 NetBeans project files
 ```
