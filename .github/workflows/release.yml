@@ -73,9 +73,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: macOS ARM64
+          - label: macOS Apple Silicon (ARM64)
             os: macos-latest
             platform: macos-arm64
+          - label: macOS Intel (x64)
+            os: macos-15-intel
+            platform: macos-x64
           - label: Windows x64
             os: windows-latest
             platform: windows-x64
@@ -203,7 +206,9 @@ jobs:
           ## Space Ships Blaster ${{ needs.build-jar.outputs.tag }}
 
           ### Standalone Downloads (No Java Required)
-          - **macOS (Apple Silicon):** Download `.dmg`, drag **Space Ships Blaster.app** to Applications. *(First launch on unsigned Mac builds: right-click → **Open**, or run `xattr -cr "/Applications/Space Ships Blaster.app"`.)*
+          - **macOS (Apple Silicon / M1–M4):** Download `...-macos-arm64.dmg`, drag **Space Ships Blaster.app** to Applications.
+          - **macOS (Intel):** Download `...-macos-x64.dmg`, drag **Space Ships Blaster.app** to Applications.
+            *(First launch on unsigned Mac builds: right-click → **Open**, or run `xattr -cr "/Applications/Space Ships Blaster.app"`.)*
           - **Windows (x64):** Download `.zip`, extract, and run **`Space Ships Blaster.exe`**.
           - **Linux (x64):** Download `.tar.gz`, extract, and run **`./Space\ Ships\ Blaster/bin/Space\ Ships\ Blaster`**.
 
