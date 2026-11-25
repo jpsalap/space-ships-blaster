@@ -118,7 +118,6 @@ public class Jugador extends Moving_obj {
             acelerando = true;
             flameTick++;
             thrustVisual = Math.min(1.0, thrustVisual + 0.25);
-            Sonidos.propulsor.loop();
             if (flameTick % 2 == 0) {
                 emitExhaustParticles();
             }
@@ -132,8 +131,8 @@ public class Jugador extends Moving_obj {
             }
             acelerando = false;
             thrustVisual = Math.max(0.0, thrustVisual - 0.18);
-            Sonidos.propulsor.stop();
         }
+        Sonidos.propulsor.updateLoopFade(acelerando);
 
         velocidad = velocidad.add(aceleracion);
         velocidad = velocidad.limitev(maxV);

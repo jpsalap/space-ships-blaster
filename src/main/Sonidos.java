@@ -8,7 +8,7 @@ import javax.sound.sampled.FloatControl;
 
 public class Sonidos {
     public static final Sonido Disparo = new Sonido("/Sounds/disparo.wav", 6, -4.0f);
-    public static final Sonido propulsor = new Sonido("/Sounds/propulsor.wav", 1, -1.5f);
+    public static final Sonido propulsor = new Sonido("/Sounds/propulsor.wav", 1, -9.5f);
     public static final Sonido explosion = new Sonido("/Sounds/explosion.wav", 5, -3.0f);
     public static final Sonido playerHit = new Sonido("/Sounds/player_hit.wav", 2, -2.0f);
     public static final Sonido wave = new Sonido("/Sounds/wave.wav", 2, -4.0f);
@@ -36,9 +36,12 @@ public class Sonidos {
 
     public static class Sonido {
         private final Clip[] pool;
+        private final float baseGainDb;
         private int nextIdx = 0;
+        private float fadeLevel = 0.0f;
 
         public Sonido(String path, int poolSize, float gainDb) {
+            this.baseGainDb = gainDb;
             pool = new Clip[Math.max(1, poolSize)];
             try {
                 URL url = Sonidos.class.getResource(path);
@@ -94,11 +97,46 @@ public class Sonidos {
             if (clip == null || clip.isRunning()) {
                 return;
             }
+            applyGain(clip, baseGainDb);
             clip.setFramePosition(0);
             clip.loop(Clip.LOOP_CONTINUOUSLY);
         }
 
+        /**
+         * Smoothly fades a looping sound in while active and out when inactive,
+         * avoiding abrupt start/stop clicks on repeated key taps.
+         */
+        public void updateLoopFade(boolean active) {
+            Clip clip = pool[0];
+            if (clip == null) {
+                return;
+            }
+            if (muted) {
+                stop();
+                return;
+            }
+            if (active) {
+                fadeLevel = Math.min(1.0f, fadeLevel + 0.14f);
+            } else {
+                fadeLevel = Math.max(0.0f, fadeLevel - 0.08f);
+            }
+            if (fadeLevel > 0.01f) {
+                float db = baseGainDb + (float) (20.0 * Math.log10(fadeLevel));
+                applyGain(clip, db);
+                if (!clip.isRunning()) {
+                    clip.setFramePosition(0);
+                    clip.loop(Clip.LOOP_CONTINUOUSLY);
+                }
+            } else {
+                if (clip.isRunning()) {
+                    clip.stop();
+                    clip.setFramePosition(0);
+                }
+            }
+        }
+
         public void stop() {
+            fadeLevel = 0.0f;
             for (Clip clip : pool) {
                 if (clip != null) {
                     if (clip.isRunning()) {
