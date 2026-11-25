@@ -56,13 +56,14 @@ public final class Estado_juego {
     private int highScore = 0;
     private boolean newHighScore = false;
     private int leaderboardRank = 0;
-    private int nextExtraLifeScore = 1500;
-    private static final int EXTRA_LIFE_STEP = 1500;
+    private int nextExtraLifeScore = 5000;
+    private int extraLifeStep = 7500;
+    public static final int MAX_LIVES = 5;
 
     // Score combo multiplier
     private int comboKills = 0;
     private int comboTimer = 0;
-    private static final int COMBO_WINDOW = 132; // ~2.2 seconds at 60 FPS
+    private static final int COMBO_WINDOW = 96; // ~1.6 seconds at 60 FPS
 
     public static int lives = 3;
     private int asteroids;
@@ -108,7 +109,7 @@ public final class Estado_juego {
             this.shipStyle
         );
         moving_obj.add(player);
-        asteroids = 1;
+        asteroids = 2;
         startWave();
     }
 
@@ -120,23 +121,26 @@ public final class Estado_juego {
         }
         if (!gameOver && lives > 0 && moving_obj.contains(player)) {
             while (puntaje >= nextExtraLifeScore) {
-                lives++;
-                nextExtraLifeScore += EXTRA_LIFE_STEP;
-                Sonidos.extraLife.play();
-                floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 125, "+1 EXTRA LIFE!", new Color(110, 255, 140), 90));
+                nextExtraLifeScore += extraLifeStep;
+                extraLifeStep += 2500;
+                if (lives < MAX_LIVES) {
+                    lives++;
+                    Sonidos.extraLife.play();
+                    floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 125, "+1 EXTRA LIFE!", new Color(110, 255, 140), 90));
+                }
             }
         }
     }
 
     public int getComboMultiplier() {
-        if (comboKills >= 10) return 4;
-        if (comboKills >= 6) return 3;
-        if (comboKills >= 3) return 2;
+        if (comboKills >= 14) return 4;
+        if (comboKills >= 8) return 3;
+        if (comboKills >= 4) return 2;
         return 1;
     }
 
     public double getWaveSpeedMultiplier() {
-        return 1.0 + Math.min(1.5, (wave - 1) * 0.14);
+        return 1.0 + Math.min(1.8, (wave - 1) * 0.18);
     }
 
     public void addExhaustParticle(Vector2D pos, Vector2D vel, Color color) {
@@ -186,8 +190,8 @@ public final class Estado_juego {
         Color popupColor = (mult >= 3) ? new Color(255, 130, 240) : ((mult == 2) ? new Color(110, 240, 255) : new Color(255, 230, 120));
         floatingTexts.add(new FloatingText(center.getX(), center.getY(), label, popupColor, 44));
 
-        // Occasional power-up drop from BIG or MED asteroids
-        if ((size == Size.BIG || size == Size.MED) && powerUps.size() < 2 && Math.random() < 0.14) {
+        // Occasional power-up drop from BIG or MED asteroids (max 1 active pickup)
+        if ((size == Size.BIG || size == Size.MED) && powerUps.isEmpty() && Math.random() < 0.08) {
             spawnRandomPowerUp(center);
         }
     }
@@ -210,7 +214,7 @@ public final class Estado_juego {
         String label = (mult > 1) ? ("+" + ufoPoints + " UFO x" + mult) : ("+" + ufoPoints + " UFO!");
         floatingTexts.add(new FloatingText(center.getX(), center.getY(), label, new Color(245, 130, 255), 65));
 
-        if (powerUps.size() < 2 && Math.random() < 0.55) {
+        if (powerUps.isEmpty() && Math.random() < 0.35) {
             spawnRandomPowerUp(center);
         }
     }
@@ -284,6 +288,7 @@ public final class Estado_juego {
                 return;
         }
         double speedScale = getWaveSpeedMultiplier();
+        double fragBoost = (newSize == Size.TINY) ? 1.25 : ((newSize == Size.SMALL) ? 1.12 : 1.0);
         Vector2D parentCenter = asteroid.getCenter();
         for (int i = 0; i < size.cantidad; i++) {
             BufferedImage childTex = texturas[(int) (Math.random() * texturas.length)];
@@ -294,7 +299,7 @@ public final class Estado_juego {
             moving_obj.add(new Asteroid(
                 childPos,
                 new Vector2D(0, 1).setDireccion(Math.random() * Math.PI * 2),
-                (Constantes.vaste * Math.random() + 1) * speedScale,
+                (Constantes.vaste * Math.random() + 1) * speedScale * fragBoost,
                 childTex,
                 this,
                 newSize
@@ -418,7 +423,7 @@ public final class Estado_juego {
                 moving_obj.add(new Ufo(fromLeft, y, wave, this));
                 Sonidos.ufoEnter.play();
                 floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 92, "UFO INCOMING!", new Color(245, 115, 255), 75));
-                ufoSpawnCooldown = Math.max(480, 960 - (wave - 3) * 70);
+                ufoSpawnCooldown = Math.max(400, 780 - (wave - 3) * 75);
             }
         }
 

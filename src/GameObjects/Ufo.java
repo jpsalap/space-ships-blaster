@@ -30,8 +30,8 @@ public class Ufo extends Moving_obj {
         this.waveAmplitude = 32 + Math.random() * 28;
         this.waveFreq = 0.04 + Math.random() * 0.025;
         this.waveNumber = waveNumber;
-        this.fireInterval = Math.max(55, 115 - (waveNumber - 3) * 8);
-        this.fireTimer = 50 + (int) (Math.random() * 40);
+        this.fireInterval = Math.max(42, 96 - (waveNumber - 3) * 9);
+        this.fireTimer = 40 + (int) (Math.random() * 30);
         this.velocidad = this.velocidad.scale(this.maxV);
     }
 
@@ -71,10 +71,10 @@ public class Ufo extends Moving_obj {
         Vector2D toPlayer = target.getCenter().substract(getCenter());
         double aimAngle = Math.atan2(toPlayer.getY(), toPlayer.getX());
         // Slight inaccuracy that tightens on later waves
-        double spread = Math.max(0.06, 0.28 - (waveNumber - 3) * 0.03);
+        double spread = Math.max(0.04, 0.22 - (waveNumber - 3) * 0.035);
         aimAngle += (Math.random() * 2 - 1) * spread;
         Vector2D dir = new Vector2D(Math.cos(aimAngle), Math.sin(aimAngle));
-        double boltSpeed = 6.2 + Math.min(2.8, (waveNumber - 3) * 0.35);
+        double boltSpeed = 6.8 + Math.min(3.2, (waveNumber - 3) * 0.4);
         gameState.getMoving_obj().add(new Laser(
             getCenter().add(dir.scale(width * 0.45)),
             dir,

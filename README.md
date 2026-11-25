@@ -11,13 +11,13 @@ Originally built in **2018** as a freshman-year *Algorithms & Programming* final
   - **Viper (Green)** — *High Speed* & razor-sharp turning.
   - **Striker (Red)** — *Rapid Fire* twin-cannon gunship.
 - **Deep Space Visuals & Dynamic Thrust**: Pre-rendered cosmic nebula backdrop, 3-layer twinkling parallax starfield, animated glowing plasma thruster jets with curving exhaust trails, seamless edge ghost-wrapping, randomized asteroid spin, centered explosions, glowing debris particles, floating score popups, and subtle camera shake.
-- **Warp Dash (`Shift`)**: Short-cooldown invulnerable boost with translucent afterimages and warp sparks for threading tight asteroid gaps.
+- **Warp Dash (`Shift`)**: Tactical invulnerable boost (7.5s cooldown) with translucent afterimages and warp sparks for threading tight asteroid gaps.
 - **Difficulty Progression & Combos**:
-  - Escalating asteroid waves with gradual speed scaling and safe edge spawns away from the player.
-  - **Score Combo Multiplier (`x2` / `x3` / `x4`)**: Chain rapid hits within ~2.2 seconds to rack up bonus multipliers.
+  - Escalating asteroid waves (starting with 2 `BIG` asteroids, +1/wave) with steeper speed scaling (`+18%`/wave) and safe edge spawns away from the player.
+  - **Score Combo Multiplier (`x2` / `x3` / `x4`)**: Chain rapid hits within ~1.6 seconds (`4 / 8 / 14` kills) to rack up bonus multipliers.
   - **Enemy Alien UFOs** appear starting at **Wave 3+** with an eerie entrance cue, weaving across space and firing aimed plasma bolts (+150 base pts).
-  - **Power-Up Drops**: Collect temporary **Shield** (`S`), **Rapid Fire** (`R`), and **Triple Spread Shot** (`3`) pickups with live HUD duration bars.
-  - **Bonus Extra Lives**: Earn `+1` extra life every **1,500 points**.
+  - **Power-Up Drops**: Rare temporary **Shield** (`S`), **Rapid Fire** (`R`), and **Triple Spread Shot** (`3`) pickups (6s duration) with live HUD bars.
+  - **Bonus Extra Lives**: Earn `+1` extra life at escalating milestones (`5,000`, `12,500`, `22,500` pts, ...), capped at **5 max lives**.
 - **Persistent Top-5 High Scores**: When a run qualifies for the Top 5, enter your **pilot name** right on the Game Over screen. Scores (pilot name, score, wave, and starfighter used) are saved locally to `~/.space_ships_blaster_scores.txt` (press `H` on the Title Screen to view anytime).
 - **Atmospheric Space Audio**: 28-second stereo ethereal deep-space room tone (`espacio.wav`), silky fade-in/out ion thruster whoosh (`propulsor.wav`), pooled SFX for lasers, explosions, dash, UFO entrance & shots, power-ups, wave clears, extra lives, and Game Over—plus a mute toggle (`M`). Original 2018 Reason `.wav` files are archived in `recursos/Sounds/archive_2018/`.
 

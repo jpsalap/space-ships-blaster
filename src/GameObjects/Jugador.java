@@ -21,9 +21,9 @@ import states.Estado_juego;
 
 public class Jugador extends Moving_obj {
     public static final int SHIP_SIZE = 44;
-    public static final int POWERUP_DURATION = 480; // 8 seconds at 60 FPS
+    public static final int POWERUP_DURATION = 360; // 6 seconds at 60 FPS
     public static final int DASH_DURATION = 10;     // ~165ms burst
-    public static final int DASH_COOLDOWN = 180;    // 3.0s cooldown
+    public static final int DASH_COOLDOWN = 450;    // 7.5s tactical cooldown
 
     private static final class Afterimage {
         final double cx, cy, angle;
