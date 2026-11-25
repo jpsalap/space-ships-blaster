@@ -1,0 +1,17 @@
+# Compiled output
+out/
+build/
+dist/
+*.class
+
+# NetBeans private files
+nbproject/private/
+
+# IntelliJ user-specific files
+.idea/workspace.xml
+.idea/shelf/
+.idea/usage.statistics.xml
+.idea/dictionaries/
+
+# OS files
+.DS_Store

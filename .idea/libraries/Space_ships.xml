@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Space_ships">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/dist/Space_ships.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
