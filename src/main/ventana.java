@@ -5,6 +5,8 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferStrategy;
 import javax.swing.JFrame;
 import GameObjects.Constantes;
@@ -16,35 +18,36 @@ import math.Vector2D;
 import states.Estado_juego;
 import states.TitleScreen;
 
-public class ventana extends JFrame implements Runnable {
+public final class ventana extends JFrame implements Runnable {
 
     private static final long serialVersionUID = 1L;
+    private static final long MAX_ELAPSED_NS = 100_000_000L; // cap at 100ms to prevent sleep/drag fast-forward bursts
 
     private enum Screen {
         TITLE,
         PLAYING
     }
 
-    private Canvas canvas;
-    private Thread hilo;
+    private final Canvas canvas;
+    private transient Thread hilo;
     private volatile boolean running = false;
 
-    private BufferStrategy bs;
-    private Graphics g;
+    private transient BufferStrategy bs;
+    private transient Graphics g;
 
     private final int fps = 60;
-    private double target_time = 1000000000.0 / fps;
+    private final double target_time = 1000000000.0 / fps;
     private double delta = 0;
     private int fpsrate = fps;
     private boolean showFps = false;
 
-    private Starfield starfield;
-    private TitleScreen titleScreen;
-    private Estado_juego gamestate;
+    private transient Starfield starfield;
+    private transient TitleScreen titleScreen;
+    private transient Estado_juego gamestate;
     private Screen currentScreen = Screen.TITLE;
     private ShipStyle selectedShip = ShipStyle.BLUE;
     private int highScore = 0;
-    private Keyboard keyb;
+    private final transient Keyboard keyb;
 
     public ventana() {
         setTitle("Space Ships Blaster");
@@ -63,13 +66,21 @@ public class ventana extends JFrame implements Runnable {
         pack();
         setLocationRelativeTo(null);
         canvas.addKeyListener(keyb);
+        canvas.addFocusListener(keyb);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                running = false;
+                Sonidos.propulsor.stop();
+                Sonidos.espacio.stop();
+            }
+        });
         setVisible(true);
         canvas.requestFocus();
     }
 
     public static void main(String[] args) {
         new ventana().start();
-        Sonidos.espacio.loop();
     }
 
     private void update() {
@@ -157,21 +168,23 @@ public class ventana extends JFrame implements Runnable {
         starfield = new Starfield(Constantes.WIDTH, Constantes.HEIGHT);
         titleScreen = new TitleScreen(selectedShip, highScore);
         currentScreen = Screen.TITLE;
+        Sonidos.espacio.loop();
     }
 
     @Override
     public void run() {
-        long now = 0;
+        long now;
         long lastTime = System.nanoTime();
         int frames = 0;
         long time = 0;
 
         inicio();
+        lastTime = System.nanoTime();
 
         while (running) {
             now = System.nanoTime();
-            long elapsed = now - lastTime;
-            delta += elapsed / target_time;
+            long elapsed = Math.min(Math.max(0L, now - lastTime), MAX_ELAPSED_NS);
+            delta = Math.min(delta + elapsed / target_time, 5.0);
             time += elapsed;
             lastTime = now;
             if (delta >= 1) {
@@ -198,16 +211,5 @@ public class ventana extends JFrame implements Runnable {
         running = true;
         hilo = new Thread(this);
         hilo.start();
-    }
-
-    private void stop() {
-        running = false;
-        if (hilo != null && Thread.currentThread() != hilo) {
-            try {
-                hilo.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
     }
 }

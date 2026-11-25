@@ -4,12 +4,9 @@ import java.awt.Font;
 import java.awt.image.BufferedImage;
 
 public class Assets {
-    public static BufferedImage jugador;
     public static BufferedImage playerBlue, playerGreen, playerRed;
-    public static BufferedImage life;
     public static BufferedImage lifeBlue, lifeGreen, lifeRed;
     public static BufferedImage ufo;
-    public static BufferedImage prop, prop2;
     public static BufferedImage blueLaser, greenLaser, redLaser;
     public static Font fontTitle, fontBig, fontMed, fontSmall, fontTiny;
     public static BufferedImage[] met_g = new BufferedImage[4];
@@ -23,17 +20,13 @@ public class Assets {
         playerBlue = Loader.ImageLoader("/naves/ship_blue.png");
         playerGreen = Loader.ImageLoader("/naves/ship_green.png");
         playerRed = Loader.ImageLoader("/naves/ship_red.png");
-        jugador = playerBlue;
 
         lifeBlue = Loader.ImageLoader("/vidas/life_blue.png");
         lifeGreen = Loader.ImageLoader("/vidas/life_green.png");
         lifeRed = Loader.ImageLoader("/vidas/life_red.png");
-        life = lifeBlue;
 
         ufo = Loader.ImageLoader("/naves/ufo.png");
 
-        prop = Loader.ImageLoader("/efectos/fire01.png");
-        prop2 = Loader.ImageLoader("/efectos/fire04.png");
         blueLaser = Loader.ImageLoader("/lasers/laserBlue01.png");
         greenLaser = Loader.ImageLoader("/lasers/laserGreen11.png");
         redLaser = Loader.ImageLoader("/lasers/laserRed01.png");

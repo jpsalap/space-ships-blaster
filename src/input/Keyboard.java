@@ -1,9 +1,11 @@
 package input;
 
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 
-public class Keyboard implements KeyListener {
+public class Keyboard implements KeyListener, FocusListener {
 
     private final boolean[] keys = new boolean[256];
     private final boolean[] prevKeys = new boolean[256];
@@ -22,7 +24,7 @@ public class Keyboard implements KeyListener {
         escape = false;
     }
 
-    public void update() {
+    public synchronized void update() {
         for (int i = 0; i < keys.length; i++) {
             justPressed[i] = keys[i] && !prevKeys[i];
             prevKeys[i] = keys[i];
@@ -45,7 +47,7 @@ public class Keyboard implements KeyListener {
         titlePressed = justPressed[KeyEvent.VK_T];
     }
 
-    public void clearActionKeys() {
+    public synchronized void clearActionKeys() {
         int[] toClear = {
             KeyEvent.VK_SPACE,
             KeyEvent.VK_ENTER,
@@ -68,8 +70,31 @@ public class Keyboard implements KeyListener {
         titlePressed = false;
     }
 
+    public synchronized void clearAllKeys() {
+        for (int i = 0; i < keys.length; i++) {
+            keys[i] = false;
+            prevKeys[i] = false;
+            justPressed[i] = false;
+        }
+        up = false;
+        left = false;
+        right = false;
+        shoot = false;
+        enter = false;
+        escape = false;
+        leftPressed = false;
+        rightPressed = false;
+        enterPressed = false;
+        shootPressed = false;
+        escapePressed = false;
+        pausePressed = false;
+        mutePressed = false;
+        fpsPressed = false;
+        titlePressed = false;
+    }
+
     @Override
-    public void keyPressed(KeyEvent e) {
+    public synchronized void keyPressed(KeyEvent e) {
         int keyCode = e.getKeyCode();
         if (keyCode >= 0 && keyCode < keys.length) {
             keys[keyCode] = true;
@@ -77,7 +102,7 @@ public class Keyboard implements KeyListener {
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {
+    public synchronized void keyReleased(KeyEvent e) {
         int keyCode = e.getKeyCode();
         if (keyCode >= 0 && keyCode < keys.length) {
             keys[keyCode] = false;
@@ -86,5 +111,14 @@ public class Keyboard implements KeyListener {
 
     @Override
     public void keyTyped(KeyEvent e) {
+    }
+
+    @Override
+    public void focusGained(FocusEvent e) {
+    }
+
+    @Override
+    public void focusLost(FocusEvent e) {
+        clearAllKeys();
     }
 }

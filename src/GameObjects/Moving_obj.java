@@ -9,7 +9,7 @@ import states.Estado_juego;
 public abstract class Moving_obj extends GameObject {
 
     protected Vector2D velocidad;
-    protected AffineTransform at, at1, at2;
+    protected AffineTransform at;
     protected double angulo;
     protected double maxV;
     protected int width;
@@ -81,7 +81,8 @@ public abstract class Moving_obj extends GameObject {
             return;
         }
 
-        gameState.playExplosion(getCenter());
+        Vector2D impactCenter = (a instanceof Laser) ? b.getCenter() : ((b instanceof Laser) ? a.getCenter() : getCenter());
+        gameState.playExplosion(impactCenter);
         a.destroy();
         b.destroy();
     }

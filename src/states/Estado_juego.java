@@ -24,7 +24,7 @@ import input.Keyboard;
 import main.Sonidos;
 import math.Vector2D;
 
-public class Estado_juego {
+public final class Estado_juego {
     private static class FloatingText {
         double x, y;
         String text;
@@ -100,11 +100,13 @@ public class Estado_juego {
             highScore = puntaje;
             newHighScore = true;
         }
-        while (puntaje >= nextExtraLifeScore) {
-            lives++;
-            nextExtraLifeScore += EXTRA_LIFE_STEP;
-            Sonidos.extraLife.play();
-            floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 125, "+1 EXTRA LIFE!", new Color(110, 255, 140), 90));
+        if (!gameOver && lives > 0 && moving_obj.contains(player)) {
+            while (puntaje >= nextExtraLifeScore) {
+                lives++;
+                nextExtraLifeScore += EXTRA_LIFE_STEP;
+                Sonidos.extraLife.play();
+                floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 125, "+1 EXTRA LIFE!", new Color(110, 255, 140), 90));
+            }
         }
     }
 
@@ -223,12 +225,18 @@ public class Estado_juego {
                 return;
         }
         double speedScale = getWaveSpeedMultiplier();
+        Vector2D parentCenter = asteroid.getCenter();
         for (int i = 0; i < size.cantidad; i++) {
+            BufferedImage childTex = texturas[(int) (Math.random() * texturas.length)];
+            Vector2D childPos = new Vector2D(
+                parentCenter.getX() - childTex.getWidth() / 2.0,
+                parentCenter.getY() - childTex.getHeight() / 2.0
+            );
             moving_obj.add(new Asteroid(
-                new Vector2D(asteroid.getPosicion().getX(), asteroid.getPosicion().getY()),
+                childPos,
                 new Vector2D(0, 1).setDireccion(Math.random() * Math.PI * 2),
                 (Constantes.vaste * Math.random() + 1) * speedScale,
-                texturas[(int) (Math.random() * texturas.length)],
+                childTex,
                 this,
                 newSize
             ));

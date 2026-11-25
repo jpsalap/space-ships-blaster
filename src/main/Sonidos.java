@@ -24,7 +24,7 @@ public class Sonidos {
         return muted;
     }
 
-    public static void toggleMute() {
+    public static synchronized void toggleMute() {
         muted = !muted;
         if (muted) {
             espacio.stop();
@@ -73,7 +73,7 @@ public class Sonidos {
             }
         }
 
-        public void play() {
+        public synchronized void play() {
             if (muted) {
                 return;
             }
@@ -89,7 +89,7 @@ public class Sonidos {
             clip.start();
         }
 
-        public void loop() {
+        public synchronized void loop() {
             if (muted) {
                 return;
             }
@@ -106,7 +106,7 @@ public class Sonidos {
          * Smoothly fades a looping sound in while active and out when inactive,
          * avoiding abrupt start/stop clicks on repeated key taps.
          */
-        public void updateLoopFade(boolean active) {
+        public synchronized void updateLoopFade(boolean active) {
             Clip clip = pool[0];
             if (clip == null) {
                 return;
@@ -135,7 +135,7 @@ public class Sonidos {
             }
         }
 
-        public void stop() {
+        public synchronized void stop() {
             fadeLevel = 0.0f;
             for (Clip clip : pool) {
                 if (clip != null) {
