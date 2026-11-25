@@ -42,6 +42,7 @@ public final class ventana extends JFrame implements Runnable {
     private boolean showFps = false;
 
     private transient Starfield starfield;
+    private transient HighScoreStore highScoreStore;
     private transient TitleScreen titleScreen;
     private transient Estado_juego gamestate;
     private Screen currentScreen = Screen.TITLE;
@@ -99,7 +100,7 @@ public final class ventana extends JFrame implements Runnable {
             if (titleScreen.shouldStart()) {
                 keyb.clearActionKeys();
                 titleScreen.resetRequests();
-                gamestate = new Estado_juego(selectedShip, highScore);
+                gamestate = new Estado_juego(selectedShip, highScore, highScoreStore);
                 currentScreen = Screen.PLAYING;
             } else if (titleScreen.shouldQuit()) {
                 exitGame();
@@ -117,7 +118,7 @@ public final class ventana extends JFrame implements Runnable {
 
         if (gamestate.shouldRestart()) {
             keyb.clearActionKeys();
-            gamestate = new Estado_juego(selectedShip, highScore);
+            gamestate = new Estado_juego(selectedShip, highScore, highScoreStore);
         } else if (gamestate.shouldReturnToTitle()) {
             keyb.clearActionKeys();
             Sonidos.propulsor.stop();
@@ -165,8 +166,10 @@ public final class ventana extends JFrame implements Runnable {
 
     private void inicio() {
         Assets.inicio();
+        highScoreStore = new HighScoreStore();
+        highScore = highScoreStore.getTopScore();
         starfield = new Starfield(Constantes.WIDTH, Constantes.HEIGHT);
-        titleScreen = new TitleScreen(selectedShip, highScore);
+        titleScreen = new TitleScreen(selectedShip, highScore, highScoreStore);
         currentScreen = Screen.TITLE;
         Sonidos.espacio.loop();
     }

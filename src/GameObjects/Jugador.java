@@ -1,8 +1,10 @@
 package GameObjects;
 
 import input.Keyboard;
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
@@ -12,12 +14,30 @@ import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 import main.Sonidos;
 import math.Vector2D;
 import states.Estado_juego;
 
 public class Jugador extends Moving_obj {
     public static final int SHIP_SIZE = 44;
+    public static final int POWERUP_DURATION = 480; // 8 seconds at 60 FPS
+    public static final int DASH_DURATION = 10;     // ~165ms burst
+    public static final int DASH_COOLDOWN = 180;    // 3.0s cooldown
+
+    private static final class Afterimage {
+        final double cx, cy, angle;
+        int life;
+        final int maxLife;
+
+        Afterimage(double cx, double cy, double angle, int maxLife) {
+            this.cx = cx;
+            this.cy = cy;
+            this.angle = angle;
+            this.life = maxLife;
+            this.maxLife = maxLife;
+        }
+    }
 
     private Vector2D direccion;
     private Vector2D aceleracion;
@@ -31,7 +51,12 @@ public class Jugador extends Moving_obj {
 
     private int shieldFrames = 0;
     private int rapidFireFrames = 0;
-    public static final int POWERUP_DURATION = 480; // 8 seconds at 60 FPS
+    private int spreadShotFrames = 0;
+
+    private int dashFrames = 0;
+    private int dashCooldown = 0;
+    private Vector2D dashDir = new Vector2D(0, -1);
+    private final ArrayList<Afterimage> afterimages = new ArrayList<Afterimage>();
 
     public Jugador(Vector2D posicion, Vector2D velocidad, double maxV, BufferedImage textura, Estado_juego gameState) {
         this(posicion, velocidad, maxV, textura, gameState, ShipStyle.BLUE);
@@ -53,16 +78,37 @@ public class Jugador extends Moving_obj {
 
     public void activateShield() { shieldFrames = POWERUP_DURATION; }
     public void activateRapidFire() { rapidFireFrames = POWERUP_DURATION; }
+    public void activateSpreadShot() { spreadShotFrames = POWERUP_DURATION; }
+
     public boolean hasShield() { return shieldFrames > 0; }
     public boolean hasRapidFire() { return rapidFireFrames > 0; }
+    public boolean hasSpreadShot() { return spreadShotFrames > 0; }
+    public boolean isDashing() { return dashFrames > 0; }
+    public boolean isDashReady() { return dashCooldown <= 0 && dashFrames <= 0; }
+
     public float getShieldRatio() { return (float) shieldFrames / POWERUP_DURATION; }
     public float getRapidFireRatio() { return (float) rapidFireFrames / POWERUP_DURATION; }
+    public float getSpreadShotRatio() { return (float) spreadShotFrames / POWERUP_DURATION; }
+    public float getDashCooldownRatio() {
+        return dashCooldown <= 0 ? 1.0f : 1.0f - (float) dashCooldown / DASH_COOLDOWN;
+    }
 
     @Override
     public void update() {
         flameTick++;
         if (shieldFrames > 0) shieldFrames--;
         if (rapidFireFrames > 0) rapidFireFrames--;
+        if (spreadShotFrames > 0) spreadShotFrames--;
+        if (dashCooldown > 0) dashCooldown--;
+
+        // Update fading dash afterimages
+        for (int i = afterimages.size() - 1; i >= 0; i--) {
+            Afterimage ai = afterimages.get(i);
+            ai.life--;
+            if (ai.life <= 0) {
+                afterimages.remove(i);
+            }
+        }
 
         if (!spawningTime.isRunning()) {
             spawning = false;
@@ -83,30 +129,73 @@ public class Jugador extends Moving_obj {
         }
         direccion = direccion.setDireccion(angulo - Math.PI / 2);
 
+        // Trigger Warp Dash on Shift
+        if (Keyboard.dashPressed && dashCooldown <= 0 && dashFrames <= 0 && !spawning) {
+            dashFrames = DASH_DURATION;
+            dashCooldown = DASH_COOLDOWN;
+            dashDir = new Vector2D(direccion.getX(), direccion.getY());
+            Sonidos.dash.play();
+            gameState.onPlayerDash(getCenter(), dashDir, shipStyle.getAccentColor());
+        }
+
+        // Fire single or triple-spread laser
         if (Keyboard.shoot && !firerate.isRunning() && !spawning) {
             int cooldown = shipStyle.getFireCooldownMs();
             if (rapidFireFrames > 0) {
                 cooldown = Math.max(45, cooldown / 2);
             }
-            gameState.getMoving_obj().add(0, new Laser(
-                getCenter().add(direccion.scale(height * 0.52)),
-                direccion,
-                Constantes.vlaser,
-                angulo,
-                shipStyle.getLaserTexture(),
-                gameState,
-                false
-            ));
+            if (spreadShotFrames > 0) {
+                double[] offsets = { -0.16, 0.0, 0.16 };
+                for (double off : offsets) {
+                    double a = angulo + off;
+                    Vector2D d = new Vector2D(Math.cos(a - Math.PI / 2), Math.sin(a - Math.PI / 2));
+                    gameState.getMoving_obj().add(0, new Laser(
+                        getCenter().add(d.scale(height * 0.52)),
+                        d,
+                        Constantes.vlaser,
+                        a,
+                        shipStyle.getLaserTexture(),
+                        gameState,
+                        false
+                    ));
+                }
+            } else {
+                gameState.getMoving_obj().add(0, new Laser(
+                    getCenter().add(direccion.scale(height * 0.52)),
+                    direccion,
+                    Constantes.vlaser,
+                    angulo,
+                    shipStyle.getLaserTexture(),
+                    gameState,
+                    false
+                ));
+            }
             firerate.run(cooldown);
             Sonidos.Disparo.play();
         }
 
         double shipAcc = shipStyle.getAcceleration();
-        if (Keyboard.up) {
+        if (dashFrames > 0) {
+            dashFrames--;
+            double cx = posicion.getX() + width / 2.0;
+            double cy = posicion.getY() + height / 2.0;
+            afterimages.add(new Afterimage(cx, cy, angulo, 14));
+            velocidad = dashDir.scale(15.5);
+            acelerando = true;
+            thrustVisual = 1.3;
+            emitExhaustParticles();
+            if (dashFrames == 0) {
+                velocidad = dashDir.scale(maxV * 0.85);
+            }
+            Sonidos.propulsor.updateLoopFade(false);
+        } else if (Keyboard.up) {
             aceleracion = direccion.scale(shipAcc);
             acelerando = true;
             thrustVisual = Math.min(1.0, thrustVisual + 0.28);
             emitExhaustParticles();
+            velocidad = velocidad.add(aceleracion);
+            velocidad = velocidad.limitev(maxV);
+            Sonidos.propulsor.updateLoopFade(true);
         } else {
             double decel = shipAcc * 0.48;
             if (velocidad.getMagni() > decel) {
@@ -117,23 +206,25 @@ public class Jugador extends Moving_obj {
             }
             acelerando = false;
             thrustVisual = Math.max(0.0, thrustVisual - 0.16);
+            velocidad = velocidad.add(aceleracion);
+            velocidad = velocidad.limitev(maxV);
+            Sonidos.propulsor.updateLoopFade(false);
         }
-        Sonidos.propulsor.updateLoopFade(acelerando);
 
-        velocidad = velocidad.add(aceleracion);
-        velocidad = velocidad.limitev(maxV);
         posicion = posicion.add(velocidad);
 
-        // Smooth wrap-around using sprite bounds
-        if (posicion.getX() > Constantes.WIDTH) {
-            posicion.setX(-width);
-        } else if (posicion.getX() < -width) {
-            posicion.setX(Constantes.WIDTH);
+        // Seamless center-based wrap-around (paired with ghost rendering in draw)
+        double cx = posicion.getX() + width / 2.0;
+        double cy = posicion.getY() + height / 2.0;
+        if (cx >= Constantes.WIDTH) {
+            posicion.setX(posicion.getX() - Constantes.WIDTH);
+        } else if (cx < 0) {
+            posicion.setX(posicion.getX() + Constantes.WIDTH);
         }
-        if (posicion.getY() > Constantes.HEIGHT) {
-            posicion.setY(-height);
-        } else if (posicion.getY() < -height) {
-            posicion.setY(Constantes.HEIGHT);
+        if (cy >= Constantes.HEIGHT) {
+            posicion.setY(posicion.getY() - Constantes.HEIGHT);
+        } else if (cy < 0) {
+            posicion.setY(posicion.getY() + Constantes.HEIGHT);
         }
 
         firerate.update();
@@ -188,6 +279,8 @@ public class Jugador extends Moving_obj {
         direccion = new Vector2D(0, -1);
         acelerando = false;
         thrustVisual = 0.0;
+        dashFrames = 0;
+        afterimages.clear();
         posicion = new Vector2D(
             Constantes.WIDTH / 2 - width / 2,
             Constantes.HEIGHT / 2 - height / 2
@@ -196,14 +289,47 @@ public class Jugador extends Moving_obj {
 
     @Override
     public void draw(Graphics g) {
+        Graphics2D G2D = (Graphics2D) g;
+
+        // Draw dash afterimages behind the ship
+        if (!afterimages.isEmpty()) {
+            Composite prevComp = G2D.getComposite();
+            AffineTransform prevTx = G2D.getTransform();
+            G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            for (int i = 0; i < afterimages.size(); i++) {
+                Afterimage ai = afterimages.get(i);
+                float alpha = Math.max(0.05f, 0.50f * ((float) ai.life / ai.maxLife));
+                G2D.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                G2D.setTransform(prevTx);
+                G2D.translate(ai.cx, ai.cy);
+                G2D.rotate(ai.angle);
+                G2D.drawImage(textura, -width / 2, -height / 2, width, height, null);
+            }
+            G2D.setTransform(prevTx);
+            G2D.setComposite(prevComp);
+        }
+
         if (!visible) {
             return;
         }
-        Graphics2D G2D = (Graphics2D) g;
-        AffineTransform prev = G2D.getTransform();
 
-        double cx = posicion.getX() + width / 2.0;
-        double cy = posicion.getY() + height / 2.0;
+        // Seamless edge ghost-wrapping: render ship at any border offset intersecting the viewport
+        int[] dxOffsets = { -Constantes.WIDTH, 0, Constantes.WIDTH };
+        int[] dyOffsets = { -Constantes.HEIGHT, 0, Constantes.HEIGHT };
+        double pad = 42.0;
+        for (int dx : dxOffsets) {
+            double rx = posicion.getX() + dx;
+            if (rx + width + pad < 0 || rx - pad > Constantes.WIDTH) continue;
+            for (int dy : dyOffsets) {
+                double ry = posicion.getY() + dy;
+                if (ry + height + pad < 0 || ry - pad > Constantes.HEIGHT) continue;
+                drawShipAt(G2D, rx + width / 2.0, ry + height / 2.0);
+            }
+        }
+    }
+
+    private void drawShipAt(Graphics2D G2D, double cx, double cy) {
+        AffineTransform prev = G2D.getTransform();
         G2D.translate(cx, cy);
         G2D.rotate(angulo);
 
@@ -235,7 +361,6 @@ public class Jugador extends Moving_obj {
         double wOuter = (active ? 5.2 : 3.2) * Math.min(1.15, power);
         Color accent = shipStyle.getAccentColor();
 
-        // Wide glowing plasma bloom around nozzle & jet
         float haloR = (float) Math.max(7.0, len * 0.9);
         RadialGradientPaint halo = new RadialGradientPaint(
             new Point2D.Double(nx, ny + len * 0.32), haloR,
@@ -249,7 +374,6 @@ public class Jugador extends Moving_obj {
         g2d.setPaint(halo);
         g2d.fillOval((int) (nx - haloR), (int) (ny + len * 0.32 - haloR), (int) (haloR * 2), (int) (haloR * 2));
 
-        // Colored outer plasma cone
         Path2D outer = new Path2D.Double();
         outer.moveTo(nx - wOuter, ny);
         outer.quadTo(nx - wOuter * 0.65, ny + len * 0.55, nx, ny + len);
@@ -258,7 +382,6 @@ public class Jugador extends Moving_obj {
         g2d.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), active ? 235 : 150));
         g2d.fill(outer);
 
-        // Bright white-hot plasma core
         double coreLen = len * 0.62;
         double wCore = wOuter * 0.54;
         Path2D inner = new Path2D.Double();

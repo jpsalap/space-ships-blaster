@@ -13,7 +13,9 @@ import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.util.List;
 import java.util.Random;
+import main.HighScoreStore;
 import main.Sonidos;
 
 public class TitleScreen {
@@ -23,15 +25,23 @@ public class TitleScreen {
     }
 
     private final AmbientRock[] rocks;
+    private final HighScoreStore highScoreStore;
     private ShipStyle selectedShip;
     private int highScore;
     private int tick = 0;
+    private boolean showScores = false;
     private boolean startRequested = false;
     private boolean quitRequested = false;
 
     public TitleScreen(ShipStyle initialShip, int highScore) {
+        this(initialShip, highScore, null);
+    }
+
+    public TitleScreen(ShipStyle initialShip, int highScore, HighScoreStore highScoreStore) {
         this.selectedShip = initialShip != null ? initialShip : ShipStyle.BLUE;
-        this.highScore = highScore;
+        this.highScoreStore = highScoreStore;
+        int stored = (highScoreStore != null) ? highScoreStore.getTopScore() : 0;
+        this.highScore = Math.max(highScore, stored);
         Random rng = new Random();
         rocks = new AmbientRock[7];
         for (int i = 0; i < rocks.length; i++) {
@@ -52,12 +62,14 @@ public class TitleScreen {
     }
 
     public void setHighScore(int highScore) {
-        this.highScore = Math.max(this.highScore, highScore);
+        int stored = (highScoreStore != null) ? highScoreStore.getTopScore() : 0;
+        this.highScore = Math.max(Math.max(this.highScore, highScore), stored);
     }
 
     public void resetRequests() {
         startRequested = false;
         quitRequested = false;
+        showScores = false;
     }
 
     public void update() {
@@ -72,6 +84,17 @@ public class TitleScreen {
             else if (r.x < -w) r.x = Constantes.WIDTH;
             if (r.y > Constantes.HEIGHT) r.y = -h;
             else if (r.y < -h) r.y = Constantes.HEIGHT;
+        }
+
+        if (Keyboard.scoresPressed) {
+            showScores = !showScores;
+            return;
+        }
+        if (showScores) {
+            if (Keyboard.escapePressed || Keyboard.enterPressed || Keyboard.shootPressed) {
+                showScores = false;
+            }
+            return;
         }
 
         if (Keyboard.leftPressed) {
@@ -126,7 +149,7 @@ public class TitleScreen {
         // Ship picker header
         g2d.setFont(Assets.fontSmall);
         g2d.setColor(new Color(195, 210, 235));
-        drawCentered(g2d, "SELECT YOUR STARFIGHTER  -  LEFT / RIGHT ARROWS", 242);
+        drawCentered(g2d, "SELECT YOUR STARFIGHTER  -  A / D  OR  LEFT / RIGHT", 242);
 
         // 3 ship cards with stat bars
         ShipStyle[] styles = ShipStyle.values();
@@ -144,28 +167,23 @@ public class TitleScreen {
             int midX = cx + cardW / 2;
             Color c = style.getAccentColor();
 
-            // Card background
             g2d.setColor(isSel ? new Color(c.getRed(), c.getGreen(), c.getBlue(), 42) : new Color(12, 16, 32, 150));
             g2d.fillRoundRect(cx, cardY, cardW, cardH, 18, 18);
 
-            // Card border
             g2d.setStroke(new BasicStroke(isSel ? 2.5f : 1.2f));
             g2d.setColor(isSel ? c : new Color(90, 105, 135, 120));
             g2d.drawRoundRect(cx, cardY, cardW, cardH, 18, 18);
 
-            // Laser preview cleanly above ship nose
             BufferedImage laserImg = style.getLaserTexture();
             int bob = isSel ? (int) (Math.sin(tick * 0.1) * 3) : 0;
             int laserH = 34;
             g2d.drawImage(laserImg, midX - laserImg.getWidth() / 2, cardY + 14 + bob, laserImg.getWidth(), laserH, null);
 
-            // Ship sprite (HD 96x96 scaled cleanly)
             BufferedImage shipImg = style.getShipTexture();
             int sw = isSel ? 76 : 62;
             int sh = isSel ? 76 : 62;
             g2d.drawImage(shipImg, midX - sw / 2, cardY + 95 - sh / 2 + bob, sw, sh, null);
 
-            // Ship name & role tag
             g2d.setFont(Assets.fontSmall);
             g2d.setColor(isSel ? Color.WHITE : new Color(165, 180, 205));
             FontMetrics fm = g2d.getFontMetrics();
@@ -176,7 +194,6 @@ public class TitleScreen {
             FontMetrics fmTiny = g2d.getFontMetrics();
             g2d.drawString(style.getRoleTag(), midX - fmTiny.stringWidth(style.getRoleTag()) / 2, cardY + 168);
 
-            // Stat bars: SPD, FIRE, TURN
             drawStatRow(g2d, cx + 22, cardY + 188, "SPD", style.getSpeedRating(), c, isSel);
             drawStatRow(g2d, cx + 22, cardY + 207, "FIRE", style.getFireRating(), c, isSel);
             drawStatRow(g2d, cx + 22, cardY + 226, "TURN", style.getAgilityRating(), c, isSel);
@@ -191,14 +208,60 @@ public class TitleScreen {
         // Controls footer
         g2d.setFont(Assets.fontTiny);
         g2d.setColor(new Color(165, 180, 205));
-        drawCentered(g2d, "ARROWS: FLY   |   SPACE: SHOOT   |   P / ESC: PAUSE   |   M: " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE") + "   |   F3: FPS", 625);
+        drawCentered(g2d, "WASD / ARROWS: FLY   |   SPACE: SHOOT   |   SHIFT: DASH   |   H: TOP SCORES   |   M: " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE"), 625);
 
         g2d.setColor(new Color(120, 135, 160));
-        drawCentered(g2d, "ESC TO QUIT", 655);
+        drawCentered(g2d, "P / ESC: PAUSE   |   F3: FPS   |   ESC TO QUIT", 655);
+
+        if (showScores) {
+            drawLeaderboardOverlay(g2d, accent);
+        }
 
         g2d.setFont(prevFont);
         g2d.setColor(prevColor);
         g2d.setStroke(prevStroke);
+    }
+
+    private void drawLeaderboardOverlay(Graphics2D g2d, Color accent) {
+        g2d.setColor(new Color(4, 6, 16, 205));
+        g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
+
+        int panelW = 500;
+        int panelH = 320;
+        int px = (Constantes.WIDTH - panelW) / 2;
+        int py = (Constantes.HEIGHT - panelH) / 2;
+
+        g2d.setColor(new Color(12, 18, 36, 235));
+        g2d.fillRoundRect(px, py, panelW, panelH, 18, 18);
+        g2d.setStroke(new BasicStroke(2.0f));
+        g2d.setColor(accent);
+        g2d.drawRoundRect(px, py, panelW, panelH, 18, 18);
+
+        g2d.setFont(Assets.fontMed);
+        g2d.setColor(Color.WHITE);
+        drawCentered(g2d, "TOP 5 PILOTS", py + 48);
+
+        List<HighScoreStore.Entry> entries = (highScoreStore != null) ? highScoreStore.getEntries() : null;
+        if (entries == null || entries.isEmpty()) {
+            g2d.setFont(Assets.fontSmall);
+            g2d.setColor(new Color(165, 180, 205));
+            drawCentered(g2d, "NO SCORES RECORDED YET", py + 165);
+        } else {
+            g2d.setFont(Assets.fontSmall);
+            for (int i = 0; i < entries.size(); i++) {
+                HighScoreStore.Entry e = entries.get(i);
+                int ry = py + 100 + i * 36;
+                g2d.setColor(i == 0 ? new Color(255, 215, 80) : Color.WHITE);
+                g2d.drawString("#" + (i + 1) + "   " + e.score, px + 36, ry);
+                g2d.setColor(new Color(165, 185, 215));
+                g2d.drawString("WAVE " + e.wave, px + 215, ry);
+                g2d.drawString(e.shipName, px + 335, ry);
+            }
+        }
+
+        g2d.setFont(Assets.fontTiny);
+        g2d.setColor(new Color(165, 180, 205));
+        drawCentered(g2d, "PRESS H OR ESC TO CLOSE", py + panelH - 22);
     }
 
     private void drawStatRow(Graphics2D g2d, int x, int y, String label, int rating, Color accent, boolean selected) {
@@ -248,5 +311,9 @@ public class TitleScreen {
 
     public boolean shouldQuit() {
         return quitRequested;
+    }
+
+    public boolean isShowingScores() {
+        return showScores;
     }
 }

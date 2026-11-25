@@ -8,19 +8,36 @@ import math.Vector2D;
 import states.Estado_juego;
 
 public class Asteroid extends Moving_obj {
-    private Size size;
+    private final Size size;
+    private final double spinSpeed;
 
     public Asteroid(Vector2D posicion, Vector2D velocidad, double maxV, BufferedImage textura, Estado_juego gameState, Size size) {
         super(posicion, velocidad, maxV, textura, gameState);
         this.size = size;
         this.velocidad = velocidad.scale(maxV);
+        this.angulo = Math.random() * Math.PI * 2;
+        this.spinSpeed = computeSpinSpeed(size);
+    }
+
+    private static double computeSpinSpeed(Size size) {
+        double min, max;
+        if (size == Size.BIG) {
+            min = 0.010; max = 0.025;
+        } else if (size == Size.MED) {
+            min = 0.022; max = 0.046;
+        } else if (size == Size.SMALL) {
+            min = 0.040; max = 0.072;
+        } else {
+            min = 0.060; max = 0.105;
+        }
+        double dir = Math.random() < 0.5 ? -1.0 : 1.0;
+        return dir * (min + Math.random() * (max - min));
     }
 
     @Override
     public void destroy() {
         int points = getPointsForSize();
         gameState.divideAsteroid(this);
-        gameState.addScore(points);
         gameState.onAsteroidDestroyed(getCenter(), size, points);
         super.destroy();
     }
@@ -46,28 +63,44 @@ public class Asteroid extends Moving_obj {
     @Override
     public void update() {
         posicion = posicion.add(velocidad);
-        if (posicion.getX() > Constantes.WIDTH) {
-            posicion.setX(-width);
-        } else if (posicion.getX() < -width) {
-            posicion.setX(Constantes.WIDTH);
+        double cx = posicion.getX() + width / 2.0;
+        double cy = posicion.getY() + height / 2.0;
+        if (cx >= Constantes.WIDTH) {
+            posicion.setX(posicion.getX() - Constantes.WIDTH);
+        } else if (cx < 0) {
+            posicion.setX(posicion.getX() + Constantes.WIDTH);
         }
-        if (posicion.getY() > Constantes.HEIGHT) {
-            posicion.setY(-height);
-        } else if (posicion.getY() < -height) {
-            posicion.setY(Constantes.HEIGHT);
+        if (cy >= Constantes.HEIGHT) {
+            posicion.setY(posicion.getY() - Constantes.HEIGHT);
+        } else if (cy < 0) {
+            posicion.setY(posicion.getY() + Constantes.HEIGHT);
         }
-        angulo += Constantes.deltaangulo / 2;
+        angulo += spinSpeed;
     }
 
     @Override
     public void draw(Graphics g) {
         Graphics2D G2D = (Graphics2D) g;
-        at = AffineTransform.getTranslateInstance(posicion.getX(), posicion.getY());
-        at.rotate(angulo, width / 2, height / 2);
-        G2D.drawImage(textura, at, null);
+        int[] dxOffsets = { -Constantes.WIDTH, 0, Constantes.WIDTH };
+        int[] dyOffsets = { -Constantes.HEIGHT, 0, Constantes.HEIGHT };
+        for (int dx : dxOffsets) {
+            double rx = posicion.getX() + dx;
+            if (rx + width < 0 || rx > Constantes.WIDTH) continue;
+            for (int dy : dyOffsets) {
+                double ry = posicion.getY() + dy;
+                if (ry + height < 0 || ry > Constantes.HEIGHT) continue;
+                at = AffineTransform.getTranslateInstance(rx, ry);
+                at.rotate(angulo, width / 2.0, height / 2.0);
+                G2D.drawImage(textura, at, null);
+            }
+        }
     }
 
     public Size getSize() {
         return size;
+    }
+
+    public double getSpinSpeed() {
+        return spinSpeed;
     }
 }

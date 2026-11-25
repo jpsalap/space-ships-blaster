@@ -14,6 +14,8 @@ public class Sonidos {
     public static final Sonido wave = new Sonido("/Sounds/wave.wav", 2, -4.0f);
     public static final Sonido gameOver = new Sonido("/Sounds/gameover.wav", 1, -3.0f);
     public static final Sonido ufoLaser = new Sonido("/Sounds/ufo_laser.wav", 4, -3.5f);
+    public static final Sonido ufoEnter = new Sonido("/Sounds/ufo_enter.wav", 2, -4.5f);
+    public static final Sonido dash = new Sonido("/Sounds/dash.wav", 2, -4.5f);
     public static final Sonido powerUp = new Sonido("/Sounds/powerup.wav", 3, -3.0f);
     public static final Sonido extraLife = new Sonido("/Sounds/extralife.wav", 2, -2.5f);
     public static final Sonido espacio = new Sonido("/Sounds/espacio.wav", 1, -5.5f);

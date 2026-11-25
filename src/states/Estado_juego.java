@@ -9,6 +9,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.List;
 import GameObjects.Asteroid;
 import GameObjects.Constantes;
 import GameObjects.Jugador;
@@ -21,6 +22,7 @@ import graphics.Animacion;
 import graphics.Assets;
 import graphics.Particle;
 import input.Keyboard;
+import main.HighScoreStore;
 import main.Sonidos;
 import math.Vector2D;
 
@@ -49,11 +51,18 @@ public final class Estado_juego {
     private ArrayList<PowerUp> powerUps = new ArrayList<PowerUp>();
     private ArrayList<FloatingText> floatingTexts = new ArrayList<FloatingText>();
 
+    private final HighScoreStore highScoreStore;
     private int puntaje = 0;
     private int highScore = 0;
     private boolean newHighScore = false;
+    private int leaderboardRank = 0;
     private int nextExtraLifeScore = 1500;
     private static final int EXTRA_LIFE_STEP = 1500;
+
+    // Score combo multiplier
+    private int comboKills = 0;
+    private int comboTimer = 0;
+    private static final int COMBO_WINDOW = 132; // ~2.2 seconds at 60 FPS
 
     public static int lives = 3;
     private int asteroids;
@@ -73,13 +82,19 @@ public final class Estado_juego {
     private double shakeMagnitude = 0;
 
     public Estado_juego() {
-        this(ShipStyle.BLUE, 0);
+        this(ShipStyle.BLUE, 0, null);
     }
 
     public Estado_juego(ShipStyle shipStyle, int highScore) {
+        this(shipStyle, highScore, null);
+    }
+
+    public Estado_juego(ShipStyle shipStyle, int highScore, HighScoreStore highScoreStore) {
         lives = 3;
         this.shipStyle = shipStyle != null ? shipStyle : ShipStyle.BLUE;
-        this.highScore = Math.max(0, highScore);
+        this.highScoreStore = highScoreStore;
+        int storedBest = (highScoreStore != null) ? highScoreStore.getTopScore() : 0;
+        this.highScore = Math.max(Math.max(0, highScore), storedBest);
         BufferedImage shipTex = this.shipStyle.getShipTexture();
         player = new Jugador(
             new Vector2D(Constantes.WIDTH / 2 - Jugador.SHIP_SIZE / 2, Constantes.HEIGHT / 2 - Jugador.SHIP_SIZE / 2),
@@ -110,6 +125,13 @@ public final class Estado_juego {
         }
     }
 
+    public int getComboMultiplier() {
+        if (comboKills >= 10) return 4;
+        if (comboKills >= 6) return 3;
+        if (comboKills >= 3) return 2;
+        return 1;
+    }
+
     public double getWaveSpeedMultiplier() {
         return 1.0 + Math.min(1.5, (wave - 1) * 0.14);
     }
@@ -120,7 +142,32 @@ public final class Estado_juego {
         }
     }
 
-    public void onAsteroidDestroyed(Vector2D center, Size size, int points) {
+    public void onPlayerDash(Vector2D center, Vector2D dir, Color accent) {
+        triggerShake(4, 2.5);
+        Vector2D back = dir.scale(-1);
+        double backAngle = Math.atan2(back.getY(), back.getX());
+        for (int i = 0; i < 16; i++) {
+            double a = backAngle + (Math.random() - 0.5) * 1.1;
+            double sp = 2.0 + Math.random() * 4.2;
+            Color c = (i % 3 == 0) ? Color.WHITE : accent;
+            particles.add(new Particle(
+                new Vector2D(center.getX(), center.getY()),
+                new Vector2D(Math.cos(a) * sp, Math.sin(a) * sp),
+                c,
+                3.2 + Math.random() * 2.4,
+                16 + (int) (Math.random() * 12),
+                true
+            ));
+        }
+    }
+
+    public void onAsteroidDestroyed(Vector2D center, Size size, int basePoints) {
+        comboKills++;
+        comboTimer = COMBO_WINDOW;
+        int mult = getComboMultiplier();
+        int awarded = basePoints * mult;
+        addScore(awarded);
+
         Sonidos.explosion.play();
         int count = (size == Size.BIG) ? 18 : (size == Size.MED ? 13 : 9);
         double shake = (size == Size.BIG) ? 6.0 : (size == Size.MED ? 4.0 : 2.5);
@@ -132,7 +179,9 @@ public final class Estado_juego {
             new Color(190, 170, 150)
         };
         spawnParticles(center, count, sparkPalette, 1.5, 4.5, 22, 38);
-        floatingTexts.add(new FloatingText(center.getX(), center.getY(), "+" + points, new Color(255, 230, 120), 42));
+        String label = (mult > 1) ? ("+" + awarded + " x" + mult) : ("+" + awarded);
+        Color popupColor = (mult >= 3) ? new Color(255, 130, 240) : ((mult == 2) ? new Color(110, 240, 255) : new Color(255, 230, 120));
+        floatingTexts.add(new FloatingText(center.getX(), center.getY(), label, popupColor, 44));
 
         // Occasional power-up drop from BIG or MED asteroids
         if ((size == Size.BIG || size == Size.MED) && powerUps.size() < 2 && Math.random() < 0.14) {
@@ -141,7 +190,10 @@ public final class Estado_juego {
     }
 
     public void onUfoDestroyed(Vector2D center) {
-        int ufoPoints = 150;
+        comboKills++;
+        comboTimer = COMBO_WINDOW;
+        int mult = getComboMultiplier();
+        int ufoPoints = 150 * mult;
         addScore(ufoPoints);
         Sonidos.explosion.play();
         triggerShake(12, 8.0);
@@ -152,7 +204,8 @@ public final class Estado_juego {
             new Color(255, 180, 255)
         };
         spawnParticles(center, 26, ufoSparks, 2.0, 5.5, 26, 44);
-        floatingTexts.add(new FloatingText(center.getX(), center.getY(), "+" + ufoPoints + " UFO!", new Color(245, 130, 255), 65));
+        String label = (mult > 1) ? ("+" + ufoPoints + " UFO x" + mult) : ("+" + ufoPoints + " UFO!");
+        floatingTexts.add(new FloatingText(center.getX(), center.getY(), label, new Color(245, 130, 255), 65));
 
         if (powerUps.size() < 2 && Math.random() < 0.55) {
             spawnRandomPowerUp(center);
@@ -171,11 +224,14 @@ public final class Estado_juego {
     }
 
     private void spawnRandomPowerUp(Vector2D center) {
-        PowerUp.Type type = Math.random() < 0.5 ? PowerUp.Type.SHIELD : PowerUp.Type.RAPID_FIRE;
+        PowerUp.Type[] types = PowerUp.Type.values();
+        PowerUp.Type type = types[(int) (Math.random() * types.length)];
         powerUps.add(new PowerUp(new Vector2D(center.getX(), center.getY()), type));
     }
 
     public void onPlayerHit(Vector2D center, Color shipAccent) {
+        comboKills = 0;
+        comboTimer = 0;
         triggerShake(16, 10.0);
         Color[] sparkPalette = {
             shipAccent,
@@ -343,14 +399,22 @@ public final class Estado_juego {
         if (waveBannerTimer > 0) {
             waveBannerTimer--;
         }
+        if (comboTimer > 0) {
+            comboTimer--;
+            if (comboTimer == 0) {
+                comboKills = 0;
+            }
+        }
 
-        // Spawn enemy UFO periodically on Wave 3+
+        // Spawn enemy UFO periodically on Wave 3+ with eerie entrance cue
         if (!gameOver && wave >= 3 && !hasActiveUfo()) {
             ufoSpawnCooldown--;
             if (ufoSpawnCooldown <= 0) {
                 boolean fromLeft = Math.random() < 0.5;
                 double y = 90 + Math.random() * (Constantes.HEIGHT - 200);
                 moving_obj.add(new Ufo(fromLeft, y, wave, this));
+                Sonidos.ufoEnter.play();
+                floatingTexts.add(new FloatingText(Constantes.WIDTH / 2.0, 92, "UFO INCOMING!", new Color(245, 115, 255), 75));
                 ufoSpawnCooldown = Math.max(480, 960 - (wave - 3) * 70);
             }
         }
@@ -404,6 +468,10 @@ public final class Estado_juego {
                 gameOverTime = System.currentTimeMillis();
                 restartArmed = false;
                 Sonidos.gameOver.play();
+                if (highScoreStore != null) {
+                    leaderboardRank = highScoreStore.record(puntaje, wave, shipStyle);
+                    highScore = Math.max(highScore, highScoreStore.getTopScore());
+                }
             } else {
                 if (!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis() - gameOverTime >= 400) {
                     restartArmed = true;
@@ -424,10 +492,16 @@ public final class Estado_juego {
 
     private void applyPowerUp(PowerUp pu) {
         Sonidos.powerUp.play();
-        if (pu.getType() == PowerUp.Type.SHIELD) {
-            player.activateShield();
-        } else {
-            player.activateRapidFire();
+        switch (pu.getType()) {
+            case SHIELD:
+                player.activateShield();
+                break;
+            case RAPID_FIRE:
+                player.activateRapidFire();
+                break;
+            case SPREAD_SHOT:
+                player.activateSpreadShot();
+                break;
         }
         floatingTexts.add(new FloatingText(
             pu.getCenter().getX(),
@@ -481,7 +555,7 @@ public final class Estado_juego {
 
         puntajes(G2D);
         vidas(G2D);
-        drawPowerUpBars(G2D);
+        drawPowerUpAndDashBars(G2D);
         drawWaveHud(G2D);
 
         if (waveBannerTimer > 0 && !gameOver) {
@@ -498,29 +572,39 @@ public final class Estado_juego {
         G2D.setColor(prevColor);
     }
 
-    private void drawPowerUpBars(Graphics2D g2d) {
+    private void drawPowerUpAndDashBars(Graphics2D g2d) {
         if (player == null || gameOver) return;
         int x = 25;
         int y = 66;
+        // Dash indicator
+        Color dashColor = player.isDashReady() ? shipStyle.getAccentColor().brighter() : new Color(110, 125, 155);
+        String dashLabel = player.isDashReady() ? "DASH READY (SHIFT)" : "DASH";
+        drawStatusBar(g2d, x, y, dashLabel, player.getDashCooldownRatio(), dashColor);
+        y += 24;
+
         if (player.hasShield()) {
             drawStatusBar(g2d, x, y, "SHIELD", player.getShieldRatio(), PowerUp.Type.SHIELD.color);
             y += 24;
         }
         if (player.hasRapidFire()) {
             drawStatusBar(g2d, x, y, "RAPID FIRE", player.getRapidFireRatio(), PowerUp.Type.RAPID_FIRE.color);
+            y += 24;
+        }
+        if (player.hasSpreadShot()) {
+            drawStatusBar(g2d, x, y, "TRIPLE SHOT", player.getSpreadShotRatio(), PowerUp.Type.SPREAD_SHOT.color);
         }
     }
 
     private void drawStatusBar(Graphics2D g2d, int x, int y, String label, float ratio, Color c) {
-        int barW = 105;
-        int barH = 7;
+        int barW = 112;
+        int barH = 6;
         g2d.setFont(Assets.fontTiny);
         g2d.setColor(c);
         g2d.drawString(label, x, y);
         g2d.setColor(new Color(20, 28, 48, 190));
         g2d.fillRoundRect(x, y + 4, barW, barH, 4, 4);
         g2d.setColor(c);
-        g2d.fillRoundRect(x, y + 4, Math.max(2, (int) (barW * ratio)), barH, 4, 4);
+        g2d.fillRoundRect(x, y + 4, Math.max(2, (int) (barW * Math.min(1f, Math.max(0f, ratio)))), barH, 4, 4);
     }
 
     private void drawWaveHud(Graphics2D g2d) {
@@ -579,35 +663,71 @@ public final class Estado_juego {
     }
 
     private void drawGameOver(Graphics2D g2d) {
-        g2d.setColor(new Color(4, 6, 16, 175));
+        g2d.setColor(new Color(4, 6, 16, 185));
         g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
 
-        int centerY = Constantes.HEIGHT / 2;
+        int topY = 170;
         g2d.setFont(Assets.fontBig);
         g2d.setColor(new Color(235, 64, 52));
-        drawCenteredString(g2d, "GAME OVER", centerY - 65);
+        drawCenteredString(g2d, "GAME OVER", topY);
 
         g2d.setFont(Assets.fontMed);
         g2d.setColor(Color.WHITE);
-        drawCenteredString(g2d, "SCORE: " + puntaje, centerY - 10);
+        drawCenteredString(g2d, "SCORE: " + puntaje + "   (WAVE " + wave + ")", topY + 52);
 
         g2d.setFont(Assets.fontSmall);
         if (newHighScore && puntaje > 0) {
             g2d.setColor(new Color(255, 215, 80));
-            drawCenteredString(g2d, "NEW HIGH SCORE!", centerY + 22);
+            drawCenteredString(g2d, "NEW HIGH SCORE!", topY + 84);
+        } else if (leaderboardRank > 0) {
+            g2d.setColor(new Color(120, 235, 255));
+            drawCenteredString(g2d, "RANK #" + leaderboardRank + " ON LEADERBOARD!", topY + 84);
         } else if (highScore > 0) {
             g2d.setColor(new Color(180, 195, 220));
-            drawCenteredString(g2d, "BEST: " + highScore, centerY + 22);
+            drawCenteredString(g2d, "BEST: " + highScore, topY + 84);
         }
 
+        // Compact Top 5 Leaderboard panel if available
+        int nextY = topY + 130;
+        if (highScoreStore != null && !highScoreStore.getEntries().isEmpty()) {
+            List<HighScoreStore.Entry> entries = highScoreStore.getEntries();
+            int panelW = 420;
+            int rowH = 26;
+            int panelH = 38 + entries.size() * rowH;
+            int px = (Constantes.WIDTH - panelW) / 2;
+            int py = topY + 108;
+
+            g2d.setColor(new Color(12, 18, 36, 190));
+            g2d.fillRoundRect(px, py, panelW, panelH, 14, 14);
+            g2d.setColor(new Color(90, 115, 160, 130));
+            g2d.drawRoundRect(px, py, panelW, panelH, 14, 14);
+
+            g2d.setFont(Assets.fontTiny);
+            g2d.setColor(new Color(180, 200, 230));
+            drawCenteredString(g2d, "TOP PILOTS", py + 22);
+
+            for (int i = 0; i < entries.size(); i++) {
+                HighScoreStore.Entry e = entries.get(i);
+                int ry = py + 46 + i * rowH;
+                boolean isMine = (i + 1 == leaderboardRank && e.score == puntaje);
+                g2d.setColor(isMine ? new Color(255, 220, 85) : new Color(215, 225, 240));
+                g2d.drawString("#" + (i + 1) + "  " + e.score, px + 24, ry);
+                g2d.setColor(isMine ? new Color(255, 220, 85) : new Color(155, 175, 205));
+                g2d.drawString("WAVE " + e.wave, px + 185, ry);
+                g2d.drawString(e.shipName, px + 290, ry);
+            }
+            nextY = py + panelH + 46;
+        }
+
+        g2d.setFont(Assets.fontSmall);
         g2d.setColor(Color.WHITE);
-        drawCenteredString(g2d, "PRESS ENTER OR SPACE TO RESTART", centerY + 72);
+        drawCenteredString(g2d, "PRESS ENTER OR SPACE TO RESTART", nextY);
 
         g2d.setColor(new Color(185, 200, 225));
-        drawCenteredString(g2d, "PRESS T FOR TITLE SCREEN", centerY + 102);
+        drawCenteredString(g2d, "PRESS T FOR TITLE SCREEN", nextY + 30);
 
         g2d.setColor(new Color(145, 155, 175));
-        drawCenteredString(g2d, "PRESS ESC TO QUIT", centerY + 132);
+        drawCenteredString(g2d, "PRESS ESC TO QUIT", nextY + 60);
     }
 
     private void drawCenteredString(Graphics2D g2d, String text, int y) {
@@ -661,6 +781,24 @@ public final class Estado_juego {
             String hi = "HI " + highScore;
             FontMetrics fm = g.getFontMetrics();
             g.drawString(hi, Constantes.WIDTH - 25 - fm.stringWidth(hi), y + 36);
+        }
+        int mult = getComboMultiplier();
+        if (comboTimer > 0 && mult > 1 && !gameOver) {
+            Color c = (mult >= 3) ? new Color(255, 120, 240) : new Color(100, 235, 255);
+            g.setFont(Assets.fontSmall);
+            g.setColor(c);
+            String comboTxt = "COMBO x" + mult;
+            FontMetrics fm = g.getFontMetrics();
+            int cx = Constantes.WIDTH - 25 - fm.stringWidth(comboTxt);
+            int cy = y + 60;
+            g.drawString(comboTxt, cx, cy);
+
+            int barW = fm.stringWidth(comboTxt);
+            float ratio = (float) comboTimer / COMBO_WINDOW;
+            g.setColor(new Color(20, 28, 48, 190));
+            g.fillRoundRect(cx, cy + 5, barW, 5, 3, 3);
+            g.setColor(c);
+            g.fillRoundRect(cx, cy + 5, Math.max(2, (int) (barW * ratio)), 5, 3, 3);
         }
     }
 

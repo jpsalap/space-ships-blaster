@@ -14,6 +14,7 @@ public class Keyboard implements KeyListener, FocusListener {
     public static boolean up, left, right, shoot, enter, escape;
     public static boolean leftPressed, rightPressed, enterPressed, shootPressed, escapePressed;
     public static boolean pausePressed, mutePressed, fpsPressed, titlePressed;
+    public static boolean dashPressed, scoresPressed;
 
     public Keyboard() {
         up = false;
@@ -29,15 +30,16 @@ public class Keyboard implements KeyListener, FocusListener {
             justPressed[i] = keys[i] && !prevKeys[i];
             prevKeys[i] = keys[i];
         }
-        up = keys[KeyEvent.VK_UP];
-        left = keys[KeyEvent.VK_LEFT];
-        right = keys[KeyEvent.VK_RIGHT];
+        // Classic Asteroids controls: Arrows OR WASD (no reverse)
+        up = keys[KeyEvent.VK_UP] || keys[KeyEvent.VK_W];
+        left = keys[KeyEvent.VK_LEFT] || keys[KeyEvent.VK_A];
+        right = keys[KeyEvent.VK_RIGHT] || keys[KeyEvent.VK_D];
         shoot = keys[KeyEvent.VK_SPACE];
         enter = keys[KeyEvent.VK_ENTER];
         escape = keys[KeyEvent.VK_ESCAPE];
 
-        leftPressed = justPressed[KeyEvent.VK_LEFT];
-        rightPressed = justPressed[KeyEvent.VK_RIGHT];
+        leftPressed = justPressed[KeyEvent.VK_LEFT] || justPressed[KeyEvent.VK_A];
+        rightPressed = justPressed[KeyEvent.VK_RIGHT] || justPressed[KeyEvent.VK_D];
         enterPressed = justPressed[KeyEvent.VK_ENTER];
         shootPressed = justPressed[KeyEvent.VK_SPACE];
         escapePressed = justPressed[KeyEvent.VK_ESCAPE];
@@ -45,6 +47,8 @@ public class Keyboard implements KeyListener, FocusListener {
         mutePressed = justPressed[KeyEvent.VK_M];
         fpsPressed = justPressed[KeyEvent.VK_F3];
         titlePressed = justPressed[KeyEvent.VK_T];
+        dashPressed = justPressed[KeyEvent.VK_SHIFT];
+        scoresPressed = justPressed[KeyEvent.VK_H];
     }
 
     public synchronized void clearActionKeys() {
@@ -53,7 +57,9 @@ public class Keyboard implements KeyListener, FocusListener {
             KeyEvent.VK_ENTER,
             KeyEvent.VK_ESCAPE,
             KeyEvent.VK_P,
-            KeyEvent.VK_T
+            KeyEvent.VK_T,
+            KeyEvent.VK_SHIFT,
+            KeyEvent.VK_H
         };
         for (int code : toClear) {
             keys[code] = false;
@@ -68,6 +74,8 @@ public class Keyboard implements KeyListener, FocusListener {
         escapePressed = false;
         pausePressed = false;
         titlePressed = false;
+        dashPressed = false;
+        scoresPressed = false;
     }
 
     public synchronized void clearAllKeys() {
@@ -91,6 +99,8 @@ public class Keyboard implements KeyListener, FocusListener {
         mutePressed = false;
         fpsPressed = false;
         titlePressed = false;
+        dashPressed = false;
+        scoresPressed = false;
     }
 
     @Override

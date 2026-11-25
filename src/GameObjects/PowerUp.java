@@ -13,7 +13,8 @@ import math.Vector2D;
 public class PowerUp {
     public enum Type {
         SHIELD("SHIELD", "S", new Color(75, 220, 255)),
-        RAPID_FIRE("RAPID FIRE", "R", new Color(255, 195, 55));
+        RAPID_FIRE("RAPID FIRE", "R", new Color(255, 195, 55)),
+        SPREAD_SHOT("TRIPLE SHOT", "3", new Color(255, 95, 220));
 
         public final String label;
         public final String icon;

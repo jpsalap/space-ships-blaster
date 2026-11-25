@@ -65,9 +65,9 @@ public abstract class Moving_obj extends GameObject {
             if (enemy && (a instanceof Ufo || a instanceof Asteroid)) return;
         }
 
-        // Spawn invulnerability
-        if (a instanceof Jugador && ((Jugador) a).isSpawning()) return;
-        if (b instanceof Jugador && ((Jugador) b).isSpawning()) return;
+        // Spawn invulnerability & Warp Dash invulnerability
+        if (a instanceof Jugador && (((Jugador) a).isSpawning() || ((Jugador) a).isDashing())) return;
+        if (b instanceof Jugador && (((Jugador) b).isSpawning() || ((Jugador) b).isDashing())) return;
 
         // Active shield absorbs the hit and destroys the hazard
         if (a instanceof Jugador && ((Jugador) a).hasShield()) {
