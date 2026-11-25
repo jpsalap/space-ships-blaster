@@ -1,5 +1,6 @@
 package graphics;
 
+import java.awt.Font;
 import java.awt.image.BufferedImage;
 
 public class Assets {
@@ -7,6 +8,7 @@ public class Assets {
     public static BufferedImage prop;
     public static BufferedImage blueLaser,greenLaser,redLaser;
     public static BufferedImage life;
+    public static Font fontBig,fontMed,fontSmall;
     public static BufferedImage[] met_g=new BufferedImage[4];
     public static BufferedImage[] met_m=new BufferedImage[2];
     public static BufferedImage[] met_s=new BufferedImage[2];
@@ -38,5 +40,11 @@ public class Assets {
         for(int i=0;i<num.length;i++){
             num[i]=Loader.ImageLoader("/numeros/num"+i+".png");
         }
+        fontBig=Loader.loadFont("/fuente/kenvector_future.ttf", 48);
+        fontMed=Loader.loadFont("/fuente/kenvector_future.ttf", 24);
+        fontSmall=Loader.loadFont("/fuente/kenvector_future.ttf", 16);
+        if(fontBig==null) fontBig=new Font("SansSerif", Font.BOLD, 48);
+        if(fontMed==null) fontMed=new Font("SansSerif", Font.BOLD, 24);
+        if(fontSmall==null) fontSmall=new Font("SansSerif", Font.PLAIN, 16);
     }    
 }

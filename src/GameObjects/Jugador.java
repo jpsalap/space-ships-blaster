@@ -77,10 +77,14 @@ public class Jugador extends Moving_obj{
     }
     @Override
     public void destroy(){
+        gameState.restarvida();
+        if(Estado_juego.lives<=0){
+            super.destroy();
+            return;
+        }
         spawning=true;
         spawningTime.run(Constantes.spawing_t);
         restablecer();
-        gameState.restarvida();
     }
     private void restablecer(){
         angulo=0;

@@ -1,6 +1,9 @@
 package states;
 
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -13,6 +16,7 @@ import GameObjects.Moving_obj;
 import GameObjects.Size;
 import graphics.Animacion;
 import graphics.Assets;
+import input.Keyboard;
 import math.Vector2D;
 
 public class Estado_juego {
@@ -22,7 +26,11 @@ public class Estado_juego {
     private int puntaje=0;
     public static int lives=3;
     private int asteroids;
+    private boolean gameOver=false;
+    private boolean restartArmed=false;
+    private long gameOverTime=0;
     public Estado_juego(){
+        lives=3;
         player=new Jugador(new Vector2D(Constantes.WIDTH/2 - Assets.jugador.getWidth()/2,Constantes.HEIGHT/2 - Assets.jugador.getHeight()/2),new Vector2D(),Constantes.j_vel_max,Assets.jugador,this);
         moving_obj.add(player);
         asteroids=1;
@@ -77,6 +85,16 @@ public class Estado_juego {
                 explosiones.remove(i);
             }
         }
+        if(lives<=0){
+            if(!gameOver){
+                gameOver=true;
+                gameOverTime=System.currentTimeMillis();
+                restartArmed=false;
+            } else if(!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis()-gameOverTime>=400){
+                restartArmed=true;
+            }
+            return;
+        }
         for(int i=0;i<moving_obj.size();i++)
             if(moving_obj.get(i) instanceof Asteroid)
                 return;
@@ -94,6 +112,46 @@ public class Estado_juego {
         }
         puntajes(g);
         vidas(g);
+        if(gameOver){
+            drawGameOver(G2D);
+        }
+    }
+    private void drawGameOver(Graphics2D g2d){
+        Font prevFont=g2d.getFont();
+        Color prevColor=g2d.getColor();
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2d.setColor(new Color(0, 0, 0, 160));
+        g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
+
+        int centerY=Constantes.HEIGHT/2;
+        g2d.setFont(Assets.fontBig);
+        g2d.setColor(new Color(235, 64, 52));
+        drawCenteredString(g2d, "GAME OVER", centerY-40);
+
+        g2d.setFont(Assets.fontMed);
+        g2d.setColor(Color.WHITE);
+        drawCenteredString(g2d, "SCORE: "+puntaje, centerY+15);
+
+        g2d.setFont(Assets.fontSmall);
+        g2d.setColor(Color.WHITE);
+        drawCenteredString(g2d, "PRESS ENTER OR SPACE TO RESTART", centerY+70);
+
+        g2d.setColor(new Color(180, 180, 180));
+        drawCenteredString(g2d, "PRESS ESC TO QUIT", centerY+100);
+
+        g2d.setFont(prevFont);
+        g2d.setColor(prevColor);
+    }
+    private void drawCenteredString(Graphics2D g2d, String text, int y){
+        FontMetrics fm=g2d.getFontMetrics();
+        int x=(Constantes.WIDTH - fm.stringWidth(text))/2;
+        g2d.drawString(text, x, y);
+    }
+    public boolean isGameOver(){
+        return gameOver;
+    }
+    public boolean shouldRestart(){
+        return gameOver && restartArmed && (Keyboard.enter || Keyboard.shoot);
     }
     private void vidas(Graphics g){
         Vector2D livePosicion=new Vector2D(25,25);

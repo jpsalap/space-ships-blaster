@@ -63,6 +63,15 @@ public class ventana extends JFrame implements Runnable{//
     private void update(){
         keyb.update();
         gamestate.update();
+        if(gamestate.shouldRestart()){
+            keyb.clearActionKeys();
+            gamestate=new Estado_juego();
+        } else if(gamestate.isGameOver() && Keyboard.escape){
+            running=false;
+            Sonidos.espacio.stop();
+            dispose();
+            System.exit(0);
+        }
     }
     private void draw(){
         bs=canvas.getBufferStrategy();
@@ -103,9 +112,6 @@ public class ventana extends JFrame implements Runnable{//
                 draw();
                 delta--;
                 frames++;
-                if(Estado_juego.lives<=0){
-                    running=false;
-                }
             }
             if(time>=1000000000){
                 fpsrate=frames;
