@@ -99,12 +99,10 @@ public class Estado_juego {
         Vector2D livePosicion=new Vector2D(25,25);
         g.drawImage(Assets.life,(int)livePosicion.getX(),(int)livePosicion.getY(),null);
         g.drawImage(Assets.num[10],(int)livePosicion.getX()+40,(int)livePosicion.getY()+5,null);
-        String liveToString=Integer.toString(lives);
+        String liveToString=Integer.toString(Math.max(0, lives));
         Vector2D pos=new Vector2D(livePosicion.getX(),livePosicion.getY());
         for(int i=0;i<liveToString.length();i++){
             int numero=Integer.parseInt(liveToString.substring(i,i+1));
-            if(numero<=0)
-                break;
             g.drawImage(Assets.num[numero],(int)pos.getX()+60, (int)pos.getY()+5, null);
             pos.setX(pos.getX()+20);
         }
@@ -124,6 +122,8 @@ public class Estado_juego {
         return player;
     }
     public void restarvida(){
-        lives--;
+        if(lives>0){
+            lives--;
+        }
     }
 }

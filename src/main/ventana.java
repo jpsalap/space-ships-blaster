@@ -24,7 +24,7 @@ public class ventana extends JFrame implements Runnable{//
     private static final long serialVersionUID=1L;
     private Canvas canvas;
     private Thread hilo;
-    private boolean running=false;
+    private volatile boolean running=false;
     
     private BufferStrategy bs;
     private Graphics g;
@@ -103,6 +103,9 @@ public class ventana extends JFrame implements Runnable{//
                 draw();
                 delta--;
                 frames++;
+                if(Estado_juego.lives<=0){
+                    running=false;
+                }
             }
             if(time>=1000000000){
                 fpsrate=frames;
@@ -110,20 +113,20 @@ public class ventana extends JFrame implements Runnable{//
                 time=0;
             }
         }
-        if(Estado_juego.lives<=0)
-        stop();
     }
     private void start(){
+        running=true;
         hilo = new Thread(this);
         hilo.start();
-        running=true;
     }
     private void stop(){
-        try {
-            hilo.join();
-            running=false;
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        running=false;
+        if(hilo!=null && Thread.currentThread()!=hilo){
+            try {
+                hilo.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

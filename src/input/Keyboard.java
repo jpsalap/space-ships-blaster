@@ -21,12 +21,18 @@ public class Keyboard implements KeyListener{
     }
     @Override
     public void keyPressed(KeyEvent e) {
-        keys[e.getKeyCode()]=true;
+        int keyCode = e.getKeyCode();
+        if(keyCode >= 0 && keyCode < keys.length){
+            keys[keyCode]=true;
+        }
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        keys[e.getKeyCode()]=false;
+        int keyCode = e.getKeyCode();
+        if(keyCode >= 0 && keyCode < keys.length){
+            keys[keyCode]=false;
+        }
     }
     @Override
     public void keyTyped(KeyEvent e) { }

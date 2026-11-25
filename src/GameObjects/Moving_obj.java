@@ -40,7 +40,7 @@ public abstract class Moving_obj extends GameObject{
         if(a instanceof Jugador && ((Jugador)a).isSpawning()){
             return;
         }
-        if(a instanceof Jugador && ((Jugador)b).isSpawning()){
+        if(b instanceof Jugador && ((Jugador)b).isSpawning()){
             return;
         }
         if(!(a instanceof Asteroid && b instanceof Asteroid)){
