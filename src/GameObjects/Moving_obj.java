@@ -37,10 +37,10 @@ public abstract class Moving_obj extends GameObject {
                 continue;
             }
             double distancia = m.getCenter().substract(getCenter()).getMagni();
-            double radiusA = Math.min(m.width, m.height) * 0.48;
-            double radiusB = Math.min(width, height) * 0.48;
-            if (m instanceof Laser && ((Laser) m).isFromEnemy()) radiusA = 8;
-            if (this instanceof Laser && ((Laser) this).isFromEnemy()) radiusB = 8;
+            double radiusA = (m instanceof Jugador) ? Math.min(m.width, m.height) * 0.36 : Math.min(m.width, m.height) * 0.46;
+            double radiusB = (this instanceof Jugador) ? Math.min(width, height) * 0.36 : Math.min(width, height) * 0.46;
+            if (m instanceof Laser && ((Laser) m).isFromEnemy()) radiusA = 7;
+            if (this instanceof Laser && ((Laser) this).isFromEnemy()) radiusB = 7;
             if (distancia < radiusA + radiusB) {
                 objectCollision(m, this);
             }

@@ -16,7 +16,7 @@ public class Sonidos {
     public static final Sonido ufoLaser = new Sonido("/Sounds/ufo_laser.wav", 4, -3.5f);
     public static final Sonido powerUp = new Sonido("/Sounds/powerup.wav", 3, -3.0f);
     public static final Sonido extraLife = new Sonido("/Sounds/extralife.wav", 2, -2.5f);
-    public static final Sonido espacio = new Sonido("/Sounds/espacio.wav", 1, -7.0f);
+    public static final Sonido espacio = new Sonido("/Sounds/espacio.wav", 1, -5.5f);
 
     private static volatile boolean muted = false;
 

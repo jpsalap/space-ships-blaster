@@ -82,7 +82,7 @@ public class Estado_juego {
         this.highScore = Math.max(0, highScore);
         BufferedImage shipTex = this.shipStyle.getShipTexture();
         player = new Jugador(
-            new Vector2D(Constantes.WIDTH / 2 - shipTex.getWidth() / 2, Constantes.HEIGHT / 2 - shipTex.getHeight() / 2),
+            new Vector2D(Constantes.WIDTH / 2 - Jugador.SHIP_SIZE / 2, Constantes.HEIGHT / 2 - Jugador.SHIP_SIZE / 2),
             new Vector2D(),
             this.shipStyle.getMaxSpeed(),
             shipTex,
@@ -113,8 +113,8 @@ public class Estado_juego {
     }
 
     public void addExhaustParticle(Vector2D pos, Vector2D vel, Color color) {
-        if (particles.size() < 220) {
-            particles.add(new Particle(pos, vel, color, 2.2 + Math.random() * 1.8, 12 + (int) (Math.random() * 8)));
+        if (particles.size() < 260) {
+            particles.add(new Particle(pos, vel, color, 3.0 + Math.random() * 2.4, 18 + (int) (Math.random() * 14), true));
         }
     }
 

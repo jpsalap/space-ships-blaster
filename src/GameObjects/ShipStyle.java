@@ -5,9 +5,9 @@ import java.awt.Color;
 import java.awt.image.BufferedImage;
 
 public enum ShipStyle {
-    BLUE("INTERCEPTOR", "BALANCED", new Color(46, 195, 250), 7.2, 0.22, 0.105, 110, 4, 4, 4, 8.5),
-    GREEN("VIPER", "HIGH SPEED", new Color(110, 228, 72), 8.8, 0.28, 0.128, 135, 5, 3, 5, 7.0),
-    RED("STRIKER", "RAPID FIRE", new Color(242, 74, 62), 6.2, 0.18, 0.092, 75, 3, 5, 3, 10.5);
+    BLUE("INTERCEPTOR", "BALANCED", new Color(46, 195, 250), 7.2, 0.22, 0.105, 110, 4, 4, 4, 6.2),
+    GREEN("VIPER", "HIGH SPEED", new Color(110, 228, 72), 8.8, 0.28, 0.128, 135, 5, 3, 5, 5.2),
+    RED("STRIKER", "RAPID FIRE", new Color(242, 74, 62), 6.2, 0.18, 0.092, 75, 3, 5, 3, 7.8);
 
     private final String displayName;
     private final String roleTag;

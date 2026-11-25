@@ -159,11 +159,10 @@ public class TitleScreen {
             int laserH = 34;
             g2d.drawImage(laserImg, midX - laserImg.getWidth() / 2, cardY + 14 + bob, laserImg.getWidth(), laserH, null);
 
-            // Ship sprite
+            // Ship sprite (HD 96x96 scaled cleanly)
             BufferedImage shipImg = style.getShipTexture();
-            double scale = isSel ? 1.22 : 1.02;
-            int sw = (int) (shipImg.getWidth() * scale);
-            int sh = (int) (shipImg.getHeight() * scale);
+            int sw = isSel ? 76 : 62;
+            int sh = isSel ? 76 : 62;
             g2d.drawImage(shipImg, midX - sw / 2, cardY + 95 - sh / 2 + bob, sw, sh, null);
 
             // Ship name & role tag
