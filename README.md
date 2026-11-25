@@ -2,25 +2,29 @@
 
 A classic Asteroids-inspired 2D arcade shooter written in pure Java (AWT / Swing) with zero external dependencies.
 
-Originally built in **2018** as a freshman-year *Algorithms & Programming* final project in NetBeans, and restored in **2026** to run cleanly in modern IntelliJ IDEA with critical crash fixes and a playable Game Over screen.
+Originally built in **2018** as a freshman-year *Algorithms & Programming* final project in NetBeans, and restored & polished in **2026** to run cleanly on modern Java with a title screen, ship selector, cosmic nebula starfield, and retro arcade audio.
 
 ## Features
 
-- **Custom 60 FPS Game Loop** using a triple-buffered `java.awt.Canvas` (`BufferStrategy`) and `Graphics2D` affine transforms for smooth sprite rotation.
-- **2D Vector Physics** (`math.Vector2D`) with angular steering, thruster acceleration, inertia/deceleration, and toroidal screen wrap-around.
-- **Escalating Asteroid Waves** with 4 asteroid sizes (`BIG` → `MED` → `SMALL` → `TINY`) that split apart when shot.
-- **Visual & Audio Feedback**: frame-by-frame explosion animations, thruster flame sprites, laser & thruster SFX, and looping space background music.
-- **Lives, Respawn Invulnerability & Game Over Screen**: 3 lives with brief blinking invulnerability after respawning, plus a Game Over overlay displaying the final score with restart and quit options.
+- **Title Screen & Ship Picker**: Choose between **Cyber Blue**, **Venom Green**, and **Crimson Red** ships—each with matching laser beams and HUD life icons.
+- **Deep Space Visuals**: Pre-rendered cosmic nebula backdrop paired with a 3-layer twinkling parallax starfield that reacts to your ship's velocity.
+- **Custom 60 FPS Game Loop**: Triple-buffered `java.awt.Canvas` (`BufferStrategy`), `Graphics2D` affine transforms, flickering twin thruster flames, centered explosions, glowing spark particles, floating score popups, and subtle screen shake.
+- **Escalating Asteroid Waves**: 4 asteroid sizes (`BIG` → `MED` → `SMALL` → `TINY`) with size-scaled points, smooth edge wrap-around, and fading wave banners.
+- **Retro Arcade Audio**: Cohesive synthesized SFX (pooled laser & explosion clips so rapid sounds overlap cleanly, click-free thruster loop, player hit, wave chime, game-over synth, and looping synthwave space track) plus a mute toggle (`M`). The original 2018 Reason `.wav` recordings are preserved in `recursos/Sounds/archive_2018/`.
+- **Pause & Game Over Flows**: Pause anytime (`P` / `Esc`), session High Score tracking, and quick restart or return to the ship picker.
 
 ## Controls
 
 | Key | Action |
 | --- | --- |
-| `←` / `→` | Rotate ship |
+| `←` / `→` | Rotate ship *(or select ship on Title Screen)* |
 | `↑` | Thrust forward |
-| `Space` | Fire laser *(also restarts on Game Over)* |
-| `Enter` | Restart on Game Over |
-| `Esc` | Quit from Game Over |
+| `Space` | Fire laser *(or start / restart)* |
+| `Enter` | Start game / Restart / Return to Title *(from Pause)* |
+| `P` / `Esc` | Pause / Resume *(or Quit on Title / Game Over)* |
+| `T` | Return to Title Screen *(from Game Over)* |
+| `M` | Mute / Unmute audio |
+| `F3` | Toggle FPS counter |
 
 ## Requirements
 
@@ -46,21 +50,21 @@ java -cp out/production/Space_ships main.ventana
 ```text
 Space_ships/
 ├── src/
-│   ├── main/           # Entry point, JFrame window, game loop (ventana) & audio (Sonidos)
-│   ├── states/         # Core gameplay state, waves, HUD, Game Over overlay (Estado_juego)
-│   ├── GameObjects/    # Player ship (Jugador), Asteroid, Laser, physics base, constants & timers
-│   ├── graphics/       # Asset loader (Loader, Assets) & frame animation (Animacion)
-│   ├── input/          # Keyboard input listener (Keyboard)
+│   ├── main/           # Entry point, JFrame window, game loop (ventana) & pooled audio (Sonidos)
+│   ├── states/         # TitleScreen (ship picker) & Estado_juego (waves, HUD, pause, game over)
+│   ├── GameObjects/    # Jugador, ShipStyle, Asteroid, Laser, Moving_obj, Constantes & Crono
+│   ├── graphics/       # Starfield, Particle, Assets, Loader & centered Animacion
+│   ├── input/          # Edge-triggered Keyboard listener
 │   └── math/           # 2D vector math utilities (Vector2D)
-├── recursos/           # Sprites (ships, asteroids, lasers, explosions, HUD numbers), font & WAV audio
+├── recursos/
+│   ├── naves/          # Blue, Green, and Red ship sprites
+│   ├── lasers/         # Matching Blue, Green, and Red laser sprites
+│   ├── vidas/          # Matching Blue, Green, and Red HUD life icons
+│   ├── asteroids/      # Big, Medium, Small, and Tiny asteroid sprites
+│   ├── efectos/        # Twin thruster flame sprites (fire01, fire04)
+│   ├── explosion/      # 9-frame explosion animation
+│   ├── fuente/         # kenvector_future.ttf arcade font
+│   └── Sounds/         # Retro arcade WAVs (+ archive_2018/ for original Reason audio)
 ├── Space_ships.iml     # IntelliJ IDEA module configuration
 └── nbproject/          # Original 2018 NetBeans project files
 ```
-
-## Restoration Notes
-
-When reviving the project after 8 years, the following fixes were applied on top of the original codebase:
-- Configured `recursos/` as a Resources Root in `Space_ships.iml` and migrated audio in `Sonidos.java` from the removed `java.applet.AudioClip` API to `javax.sound.sampled.Clip` (enabling modern JDK compatibility and clean thruster looping).
-- Fixed critical crashes: `ClassCastException` & broken spawn invulnerability in `Moving_obj`, keyboard `ArrayIndexOutOfBoundsException` on extended keys in `Keyboard`, startup thread race & `stop()` self-join deadlock in `ventana`, and `NumberFormatException` on negative lives in `Estado_juego`.
-- Fixed gameplay & rendering bugs: double player update on laser fire, laser-vs-laser/player collisions, safe list iteration for moving objects & explosions, ship deceleration jitter & stale respawn acceleration, `Crono` initial timer expiration, `Vector2D` zero-vector normalization, laser hitbox/draw alignment, visible/working FPS counter with CPU-friendly sleep pacing, and `pack()` window sizing.
-- Added a **Game Over** screen using the bundled `kenvector_future.ttf` font with **Enter / Space** to restart and **Esc** to quit.

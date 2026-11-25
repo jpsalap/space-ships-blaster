@@ -1,189 +1,500 @@
 package states;
 
-
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import GameObjects.Asteroid;
 import GameObjects.Constantes;
 import GameObjects.Jugador;
 import GameObjects.Moving_obj;
+import GameObjects.ShipStyle;
 import GameObjects.Size;
 import graphics.Animacion;
 import graphics.Assets;
+import graphics.Particle;
 import input.Keyboard;
+import main.Sonidos;
 import math.Vector2D;
 
 public class Estado_juego {
+    private static class FloatingText {
+        double x, y;
+        String text;
+        Color color;
+        int life;
+        final int maxLife;
+
+        FloatingText(double x, double y, String text, Color color, int maxLife) {
+            this.x = x;
+            this.y = y;
+            this.text = text;
+            this.color = color;
+            this.life = maxLife;
+            this.maxLife = maxLife;
+        }
+    }
+
     private Jugador player;
-    private ArrayList<Moving_obj> moving_obj =new ArrayList<Moving_obj>();
-    private ArrayList<Animacion> explosiones=new ArrayList<Animacion>();
-    private int puntaje=0;
-    public static int lives=3;
+    private ArrayList<Moving_obj> moving_obj = new ArrayList<Moving_obj>();
+    private ArrayList<Animacion> explosiones = new ArrayList<Animacion>();
+    private ArrayList<Particle> particles = new ArrayList<Particle>();
+    private ArrayList<FloatingText> floatingTexts = new ArrayList<FloatingText>();
+
+    private int puntaje = 0;
+    private int highScore = 0;
+    private boolean newHighScore = false;
+    public static int lives = 3;
     private int asteroids;
-    private boolean gameOver=false;
-    private boolean restartArmed=false;
-    private long gameOverTime=0;
-    public Estado_juego(){
-        lives=3;
-        player=new Jugador(new Vector2D(Constantes.WIDTH/2 - Assets.jugador.getWidth()/2,Constantes.HEIGHT/2 - Assets.jugador.getHeight()/2),new Vector2D(),Constantes.j_vel_max,Assets.jugador,this);
+    private int wave = 0;
+    private int waveBannerTimer = 0;
+    private static final int WAVE_BANNER_DURATION = 110;
+
+    private ShipStyle shipStyle;
+    private boolean paused = false;
+    private boolean gameOver = false;
+    private boolean restartArmed = false;
+    private boolean returnToTitle = false;
+    private long gameOverTime = 0;
+
+    private int shakeFrames = 0;
+    private double shakeMagnitude = 0;
+
+    public Estado_juego() {
+        this(ShipStyle.BLUE, 0);
+    }
+
+    public Estado_juego(ShipStyle shipStyle, int highScore) {
+        lives = 3;
+        this.shipStyle = shipStyle != null ? shipStyle : ShipStyle.BLUE;
+        this.highScore = Math.max(0, highScore);
+        BufferedImage shipTex = this.shipStyle.getShipTexture();
+        player = new Jugador(
+            new Vector2D(Constantes.WIDTH / 2 - shipTex.getWidth() / 2, Constantes.HEIGHT / 2 - shipTex.getHeight() / 2),
+            new Vector2D(),
+            Constantes.j_vel_max,
+            shipTex,
+            this,
+            this.shipStyle
+        );
         moving_obj.add(player);
-        asteroids=1;
+        asteroids = 1;
         startWave();
     }
-    public void addScore(int valor){
-        puntaje +=valor;
+
+    public void addScore(int valor) {
+        puntaje += valor;
+        if (puntaje > highScore) {
+            highScore = puntaje;
+            newHighScore = true;
+        }
     }
-    public void divideAsteroid(Asteroid asteroid){
-        Size size= asteroid.getSize();
-        BufferedImage[] texturas=size.texturas;
-        Size newSize=null;
-        switch(size){
+
+    public void onAsteroidDestroyed(Vector2D center, Size size, int points) {
+        Sonidos.explosion.play();
+        int count = (size == Size.BIG) ? 18 : (size == Size.MED ? 13 : 9);
+        double shake = (size == Size.BIG) ? 6.0 : (size == Size.MED ? 4.0 : 2.5);
+        triggerShake(8, shake);
+        Color[] sparkPalette = {
+            new Color(255, 195, 75),
+            new Color(255, 120, 45),
+            new Color(255, 240, 175),
+            new Color(190, 170, 150)
+        };
+        spawnParticles(center, count, sparkPalette, 1.5, 4.5, 22, 38);
+        floatingTexts.add(new FloatingText(center.getX(), center.getY(), "+" + points, new Color(255, 230, 120), 42));
+    }
+
+    public void onPlayerHit(Vector2D center, Color shipAccent) {
+        triggerShake(16, 10.0);
+        Color[] sparkPalette = {
+            shipAccent,
+            Color.WHITE,
+            new Color(255, 140, 50),
+            new Color(255, 220, 90)
+        };
+        spawnParticles(center, 28, sparkPalette, 2.0, 6.0, 28, 48);
+    }
+
+    private void spawnParticles(Vector2D center, int count, Color[] palette, double minSpeed, double maxSpeed, int minLife, int maxLife) {
+        for (int i = 0; i < count; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
+            Vector2D vel = new Vector2D(Math.cos(angle) * speed, Math.sin(angle) * speed);
+            Color c = palette[(int) (Math.random() * palette.length)];
+            double sz = 2.5 + Math.random() * 3.5;
+            int life = minLife + (int) (Math.random() * (maxLife - minLife));
+            particles.add(new Particle(new Vector2D(center.getX(), center.getY()), vel, c, sz, life));
+        }
+    }
+
+    private void triggerShake(int frames, double magnitude) {
+        if (magnitude >= shakeMagnitude || shakeFrames <= 0) {
+            shakeFrames = Math.max(shakeFrames, frames);
+            shakeMagnitude = Math.max(shakeMagnitude, magnitude);
+        }
+    }
+
+    public void divideAsteroid(Asteroid asteroid) {
+        Size size = asteroid.getSize();
+        BufferedImage[] texturas = size.texturas;
+        Size newSize = null;
+        switch (size) {
             case BIG:
-                newSize=Size.MED;
+                newSize = Size.MED;
                 break;
             case MED:
-                newSize=Size.SMALL;
+                newSize = Size.SMALL;
                 break;
             case SMALL:
-                newSize=Size.TINY;
+                newSize = Size.TINY;
                 break;
             case TINY:
                 break;
-            default:  
+            default:
                 return;
         }
-        for(int i=0;i<size.cantidad;i++){
-            moving_obj.add(new Asteroid(asteroid.getPosicion(),new Vector2D(0, 1).setDireccion(Math.random()*Math.PI*2),Constantes.vaste*Math.random()+1,texturas[(int)(Math.random()*texturas.length)],this,newSize));
+        for (int i = 0; i < size.cantidad; i++) {
+            moving_obj.add(new Asteroid(
+                new Vector2D(asteroid.getPosicion().getX(), asteroid.getPosicion().getY()),
+                new Vector2D(0, 1).setDireccion(Math.random() * Math.PI * 2),
+                Constantes.vaste * Math.random() + 1,
+                texturas[(int) (Math.random() * texturas.length)],
+                this,
+                newSize
+            ));
         }
-        }
-    private void startWave(){
-        double x,y;
-        for(int i=0;i<asteroids;i++){
-            x=i%2==0 ? Math.random()*Constantes.WIDTH :0;
-            y=i%2==0 ? 0: Math.random()*Constantes.HEIGHT;
-            BufferedImage textura=Assets.met_g[(int)(Math.random()*Assets.met_g.length)];
-            moving_obj.add(new Asteroid(new Vector2D(x, y),new Vector2D(0, 1).setDireccion(Math.random()*Math.PI*2),Constantes.vaste*Math.random()+1,textura,this,Size.BIG));
-        }
-        asteroids ++;
     }
-    public void playExplosion(Vector2D posicion){
-        explosiones.add(new Animacion(Assets.expl,50,posicion.substract(new Vector2D(Assets.expl[0].getWidth()/2,Assets.expl[0].getHeight()/2))));
+
+    private void startWave() {
+        wave++;
+        waveBannerTimer = WAVE_BANNER_DURATION;
+        if (wave > 1) {
+            Sonidos.wave.play();
+        }
+        double x, y;
+        for (int i = 0; i < asteroids; i++) {
+            x = i % 2 == 0 ? Math.random() * Constantes.WIDTH : 0;
+            y = i % 2 == 0 ? 0 : Math.random() * Constantes.HEIGHT;
+            BufferedImage textura = Assets.met_g[(int) (Math.random() * Assets.met_g.length)];
+            moving_obj.add(new Asteroid(
+                new Vector2D(x, y),
+                new Vector2D(0, 1).setDireccion(Math.random() * Math.PI * 2),
+                Constantes.vaste * Math.random() + 1,
+                textura,
+                this,
+                Size.BIG
+            ));
+        }
+        asteroids++;
     }
-    public void update(){
-        for(Moving_obj obj : new ArrayList<Moving_obj>(moving_obj)){
-            if(moving_obj.contains(obj)){
+
+    public void playExplosion(Vector2D posicion) {
+        explosiones.add(new Animacion(Assets.expl, 45, new Vector2D(posicion.getX(), posicion.getY())));
+    }
+
+    public void update() {
+        // Handle Pause toggle during active gameplay
+        if (!gameOver) {
+            if (Keyboard.pausePressed || Keyboard.escapePressed) {
+                paused = !paused;
+                if (paused) {
+                    Sonidos.propulsor.stop();
+                }
+                return;
+            }
+            if (paused) {
+                if (Keyboard.enterPressed || Keyboard.titlePressed) {
+                    Sonidos.propulsor.stop();
+                    returnToTitle = true;
+                }
+                return;
+            }
+        }
+
+        if (shakeFrames > 0) {
+            shakeFrames--;
+            if (shakeFrames == 0) {
+                shakeMagnitude = 0;
+            }
+        }
+        if (waveBannerTimer > 0) {
+            waveBannerTimer--;
+        }
+
+        for (Moving_obj obj : new ArrayList<Moving_obj>(moving_obj)) {
+            if (moving_obj.contains(obj)) {
                 obj.update();
             }
         }
-        for(int i=explosiones.size()-1;i>=0;i--){
+        for (int i = explosiones.size() - 1; i >= 0; i--) {
             Animacion anim = explosiones.get(i);
             anim.update();
-            if(!anim.isRunning()){
+            if (!anim.isRunning()) {
                 explosiones.remove(i);
             }
         }
-        if(lives<=0){
-            if(!gameOver){
-                gameOver=true;
-                gameOverTime=System.currentTimeMillis();
-                restartArmed=false;
-            } else if(!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis()-gameOverTime>=400){
-                restartArmed=true;
+        for (int i = particles.size() - 1; i >= 0; i--) {
+            Particle p = particles.get(i);
+            p.update();
+            if (!p.isAlive()) {
+                particles.remove(i);
+            }
+        }
+        for (int i = floatingTexts.size() - 1; i >= 0; i--) {
+            FloatingText ft = floatingTexts.get(i);
+            ft.y -= 0.9;
+            ft.life--;
+            if (ft.life <= 0) {
+                floatingTexts.remove(i);
+            }
+        }
+
+        if (lives <= 0) {
+            if (!gameOver) {
+                gameOver = true;
+                gameOverTime = System.currentTimeMillis();
+                restartArmed = false;
+                Sonidos.gameOver.play();
+            } else {
+                if (!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis() - gameOverTime >= 400) {
+                    restartArmed = true;
+                }
+                if (restartArmed && Keyboard.titlePressed) {
+                    returnToTitle = true;
+                }
             }
             return;
         }
-        for(int i=0;i<moving_obj.size();i++)
-            if(moving_obj.get(i) instanceof Asteroid)
+        for (int i = 0; i < moving_obj.size(); i++) {
+            if (moving_obj.get(i) instanceof Asteroid) {
                 return;
+            }
+        }
         startWave();
     }
-    public void draw(Graphics g){
-        Graphics2D G2D=(Graphics2D)g;
-        G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION,RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        for(int i=0;i<moving_obj.size();i++){
-            moving_obj.get(i).draw(g);
-        }    
-        for(int i=0;i<explosiones.size();i++){
-            Animacion anim = explosiones.get(i);
-            G2D.drawImage(anim.getCurrentFrame(), (int)anim.getPosicion().getX(), (int)anim.getPosicion().getY(), null);
+
+    public void draw(Graphics g) {
+        Graphics2D G2D = (Graphics2D) g;
+        Font prevFont = G2D.getFont();
+        Color prevColor = G2D.getColor();
+        AffineTransform prevTransform = G2D.getTransform();
+
+        G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        G2D.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        // Apply subtle camera shake to gameplay world only
+        if (shakeFrames > 0 && !paused) {
+            double dx = (Math.random() * 2 - 1) * shakeMagnitude;
+            double dy = (Math.random() * 2 - 1) * shakeMagnitude;
+            G2D.translate(dx, dy);
         }
-        puntajes(g);
-        vidas(g);
-        if(gameOver){
+
+        for (int i = 0; i < moving_obj.size(); i++) {
+            moving_obj.get(i).draw(g);
+        }
+        for (int i = 0; i < particles.size(); i++) {
+            particles.get(i).draw(G2D);
+        }
+        for (int i = 0; i < explosiones.size(); i++) {
+            explosiones.get(i).draw(G2D);
+        }
+        for (int i = 0; i < floatingTexts.size(); i++) {
+            FloatingText ft = floatingTexts.get(i);
+            int alpha = Math.min(255, Math.max(0, (int) (255.0 * ft.life / ft.maxLife)));
+            G2D.setFont(Assets.fontTiny);
+            G2D.setColor(new Color(ft.color.getRed(), ft.color.getGreen(), ft.color.getBlue(), alpha));
+            FontMetrics fm = G2D.getFontMetrics();
+            G2D.drawString(ft.text, (int) (ft.x - fm.stringWidth(ft.text) / 2.0), (int) ft.y);
+        }
+
+        // Reset camera shake before HUD and overlays
+        G2D.setTransform(prevTransform);
+
+        puntajes(G2D);
+        vidas(G2D);
+        drawWaveHud(G2D);
+
+        if (waveBannerTimer > 0 && !gameOver) {
+            drawWaveBanner(G2D);
+        }
+        if (paused && !gameOver) {
+            drawPaused(G2D);
+        }
+        if (gameOver) {
             drawGameOver(G2D);
         }
+
+        G2D.setFont(prevFont);
+        G2D.setColor(prevColor);
     }
-    private void drawGameOver(Graphics2D g2d){
-        Font prevFont=g2d.getFont();
-        Color prevColor=g2d.getColor();
-        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g2d.setColor(new Color(0, 0, 0, 160));
+
+    private void drawWaveHud(Graphics2D g2d) {
+        g2d.setFont(Assets.fontSmall);
+        g2d.setColor(new Color(185, 205, 235, 210));
+        drawCenteredString(g2d, "WAVE " + wave, 42);
+        if (Sonidos.isMuted()) {
+            g2d.setFont(Assets.fontTiny);
+            g2d.setColor(new Color(235, 110, 100, 210));
+            drawCenteredString(g2d, "MUTED (M)", 62);
+        }
+    }
+
+    private void drawWaveBanner(Graphics2D g2d) {
+        double progress = 1.0 - (double) waveBannerTimer / WAVE_BANNER_DURATION;
+        double fade;
+        if (progress < 0.2) {
+            fade = progress / 0.2;
+        } else if (progress > 0.7) {
+            fade = (1.0 - progress) / 0.3;
+        } else {
+            fade = 1.0;
+        }
+        int alpha = Math.min(255, Math.max(0, (int) (255 * fade)));
+        Color accent = shipStyle.getAccentColor();
+        g2d.setFont(Assets.fontBig);
+        g2d.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), alpha / 2));
+        drawCenteredString(g2d, "WAVE " + wave, 192);
+        g2d.setColor(new Color(255, 255, 255, alpha));
+        drawCenteredString(g2d, "WAVE " + wave, 190);
+    }
+
+    private void drawPaused(Graphics2D g2d) {
+        g2d.setColor(new Color(4, 6, 16, 170));
         g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
 
-        int centerY=Constantes.HEIGHT/2;
+        int centerY = Constantes.HEIGHT / 2;
         g2d.setFont(Assets.fontBig);
-        g2d.setColor(new Color(235, 64, 52));
-        drawCenteredString(g2d, "GAME OVER", centerY-40);
-
-        g2d.setFont(Assets.fontMed);
-        g2d.setColor(Color.WHITE);
-        drawCenteredString(g2d, "SCORE: "+puntaje, centerY+15);
+        g2d.setColor(shipStyle.getAccentColor().brighter());
+        drawCenteredString(g2d, "PAUSED", centerY - 35);
 
         g2d.setFont(Assets.fontSmall);
         g2d.setColor(Color.WHITE);
-        drawCenteredString(g2d, "PRESS ENTER OR SPACE TO RESTART", centerY+70);
+        drawCenteredString(g2d, "PRESS P OR ESC TO RESUME", centerY + 25);
 
-        g2d.setColor(new Color(180, 180, 180));
-        drawCenteredString(g2d, "PRESS ESC TO QUIT", centerY+100);
+        g2d.setColor(new Color(185, 195, 215));
+        drawCenteredString(g2d, "PRESS ENTER FOR TITLE SCREEN", centerY + 55);
 
-        g2d.setFont(prevFont);
-        g2d.setColor(prevColor);
+        g2d.setColor(new Color(145, 160, 185));
+        drawCenteredString(g2d, "PRESS M TO " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE") + " SOUND", centerY + 85);
     }
-    private void drawCenteredString(Graphics2D g2d, String text, int y){
-        FontMetrics fm=g2d.getFontMetrics();
-        int x=(Constantes.WIDTH - fm.stringWidth(text))/2;
+
+    private void drawGameOver(Graphics2D g2d) {
+        g2d.setColor(new Color(4, 6, 16, 175));
+        g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
+
+        int centerY = Constantes.HEIGHT / 2;
+        g2d.setFont(Assets.fontBig);
+        g2d.setColor(new Color(235, 64, 52));
+        drawCenteredString(g2d, "GAME OVER", centerY - 65);
+
+        g2d.setFont(Assets.fontMed);
+        g2d.setColor(Color.WHITE);
+        drawCenteredString(g2d, "SCORE: " + puntaje, centerY - 10);
+
+        g2d.setFont(Assets.fontSmall);
+        if (newHighScore && puntaje > 0) {
+            g2d.setColor(new Color(255, 215, 80));
+            drawCenteredString(g2d, "NEW HIGH SCORE!", centerY + 22);
+        } else if (highScore > 0) {
+            g2d.setColor(new Color(180, 195, 220));
+            drawCenteredString(g2d, "BEST: " + highScore, centerY + 22);
+        }
+
+        g2d.setColor(Color.WHITE);
+        drawCenteredString(g2d, "PRESS ENTER OR SPACE TO RESTART", centerY + 72);
+
+        g2d.setColor(new Color(185, 200, 225));
+        drawCenteredString(g2d, "PRESS T FOR TITLE SCREEN", centerY + 102);
+
+        g2d.setColor(new Color(145, 155, 175));
+        drawCenteredString(g2d, "PRESS ESC TO QUIT", centerY + 132);
+    }
+
+    private void drawCenteredString(Graphics2D g2d, String text, int y) {
+        FontMetrics fm = g2d.getFontMetrics();
+        int x = (Constantes.WIDTH - fm.stringWidth(text)) / 2;
         g2d.drawString(text, x, y);
     }
-    public boolean isGameOver(){
+
+    public boolean isPaused() {
+        return paused;
+    }
+
+    public boolean isGameOver() {
         return gameOver;
     }
-    public boolean shouldRestart(){
+
+    public boolean shouldRestart() {
         return gameOver && restartArmed && (Keyboard.enter || Keyboard.shoot);
     }
-    private void vidas(Graphics g){
-        Vector2D livePosicion=new Vector2D(25,25);
-        g.drawImage(Assets.life,(int)livePosicion.getX(),(int)livePosicion.getY(),null);
-        g.drawImage(Assets.num[10],(int)livePosicion.getX()+40,(int)livePosicion.getY()+5,null);
-        String liveToString=Integer.toString(Math.max(0, lives));
-        Vector2D pos=new Vector2D(livePosicion.getX(),livePosicion.getY());
-        for(int i=0;i<liveToString.length();i++){
-            int numero=Integer.parseInt(liveToString.substring(i,i+1));
-            g.drawImage(Assets.num[numero],(int)pos.getX()+60, (int)pos.getY()+5, null);
-            pos.setX(pos.getX()+20);
+
+    public boolean shouldReturnToTitle() {
+        return returnToTitle;
+    }
+
+    public int getHighScore() {
+        return highScore;
+    }
+
+    public int getPuntaje() {
+        return puntaje;
+    }
+
+    public Vector2D getPlayerVelocity() {
+        if (player != null && moving_obj.contains(player)) {
+            return player.getVelocidad();
+        }
+        return new Vector2D(0, 0);
+    }
+
+    private void vidas(Graphics2D g) {
+        int x = 25;
+        int y = 24;
+        g.drawImage(shipStyle.getLifeTexture(), x, y, null);
+        g.drawImage(Assets.num[10], x + 40, y + 5, null);
+        String liveToString = Integer.toString(Math.max(0, lives));
+        int dx = x + 62;
+        for (int i = 0; i < liveToString.length(); i++) {
+            int numero = Integer.parseInt(liveToString.substring(i, i + 1));
+            g.drawImage(Assets.num[numero], dx, y + 5, null);
+            dx += 20;
         }
     }
-    private void puntajes(Graphics g){
-        Vector2D pos=new Vector2D(800,25);
+
+    private void puntajes(Graphics2D g) {
         String scoreToString = Integer.toString(puntaje);
-        for(int i=0;i<scoreToString.length();i++){
-            g.drawImage(Assets.num[Integer.parseInt(scoreToString.substring(i,i+1))], (int)pos.getX(), (int)pos.getY(), null);
-            pos.setX(pos.getX()+20);
+        int digitStep = 20;
+        int totalWidth = scoreToString.length() * digitStep;
+        int startX = Constantes.WIDTH - 25 - totalWidth;
+        int y = 26;
+        for (int i = 0; i < scoreToString.length(); i++) {
+            g.drawImage(Assets.num[Integer.parseInt(scoreToString.substring(i, i + 1))], startX + i * digitStep, y, null);
+        }
+        if (highScore > 0) {
+            g.setFont(Assets.fontTiny);
+            g.setColor(new Color(175, 190, 215, 200));
+            String hi = "HI " + highScore;
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(hi, Constantes.WIDTH - 25 - fm.stringWidth(hi), y + 36);
         }
     }
-    public ArrayList<Moving_obj> getMoving_obj(){
+
+    public ArrayList<Moving_obj> getMoving_obj() {
         return moving_obj;
     }
-    public Jugador getJugador(){
+
+    public Jugador getJugador() {
         return player;
     }
-    public void restarvida(){
-        if(lives>0){
+
+    public void restarvida() {
+        if (lives > 0) {
             lives--;
         }
     }
