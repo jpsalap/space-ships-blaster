@@ -74,6 +74,9 @@ public final class Estado_juego {
     private ShipStyle shipStyle;
     private boolean paused = false;
     private boolean gameOver = false;
+    private boolean enteringName = false;
+    private final StringBuilder pilotNameInput = new StringBuilder();
+    private int nameBlinkTick = 0;
     private boolean restartArmed = false;
     private boolean returnToTitle = false;
     private long gameOverTime = 0;
@@ -468,12 +471,47 @@ public final class Estado_juego {
                 gameOverTime = System.currentTimeMillis();
                 restartArmed = false;
                 Sonidos.gameOver.play();
-                if (highScoreStore != null) {
-                    leaderboardRank = highScoreStore.record(puntaje, wave, shipStyle);
-                    highScore = Math.max(highScore, highScoreStore.getTopScore());
+                if (highScoreStore != null && highScoreStore.qualifies(puntaje)) {
+                    enteringName = true;
+                    pilotNameInput.setLength(0);
+                    String prev = highScoreStore.getLastPlayerName();
+                    if (prev != null && !prev.isEmpty()) {
+                        pilotNameInput.append(prev);
+                    }
+                    Keyboard.frameTypedChars = "";
+                    Keyboard.frameBackspaces = 0;
+                }
+            } else if (enteringName) {
+                nameBlinkTick++;
+                long sinceDeath = System.currentTimeMillis() - gameOverTime;
+                if (sinceDeath >= 250) {
+                    for (int b = 0; b < Keyboard.frameBackspaces; b++) {
+                        if (pilotNameInput.length() > 0) {
+                            pilotNameInput.deleteCharAt(pilotNameInput.length() - 1);
+                        }
+                    }
+                    String typed = Keyboard.frameTypedChars;
+                    if (typed != null && !typed.isEmpty()) {
+                        for (int idx = 0; idx < typed.length() && pilotNameInput.length() < HighScoreStore.MAX_NAME_LEN; idx++) {
+                            char ch = typed.charAt(idx);
+                            if (ch == ' ' && pilotNameInput.length() == 0) {
+                                continue;
+                            }
+                            pilotNameInput.append(ch);
+                        }
+                    }
+                    if (Keyboard.enterPressed || Keyboard.escapePressed) {
+                        String chosenName = Keyboard.escapePressed ? "PILOT" : pilotNameInput.toString();
+                        leaderboardRank = highScoreStore.record(chosenName, puntaje, wave, shipStyle);
+                        highScore = Math.max(highScore, highScoreStore.getTopScore());
+                        enteringName = false;
+                        restartArmed = false;
+                        gameOverTime = System.currentTimeMillis();
+                        Sonidos.powerUp.play();
+                    }
                 }
             } else {
-                if (!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis() - gameOverTime >= 400) {
+                if (!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis() - gameOverTime >= 350) {
                     restartArmed = true;
                 }
                 if (restartArmed && Keyboard.titlePressed) {
@@ -663,10 +701,10 @@ public final class Estado_juego {
     }
 
     private void drawGameOver(Graphics2D g2d) {
-        g2d.setColor(new Color(4, 6, 16, 185));
+        g2d.setColor(new Color(4, 6, 16, 190));
         g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
 
-        int topY = 170;
+        int topY = 155;
         g2d.setFont(Assets.fontBig);
         g2d.setColor(new Color(235, 64, 52));
         drawCenteredString(g2d, "GAME OVER", topY);
@@ -674,6 +712,38 @@ public final class Estado_juego {
         g2d.setFont(Assets.fontMed);
         g2d.setColor(Color.WHITE);
         drawCenteredString(g2d, "SCORE: " + puntaje + "   (WAVE " + wave + ")", topY + 52);
+
+        if (enteringName) {
+            Color accent = shipStyle.getAccentColor();
+            g2d.setFont(Assets.fontSmall);
+            g2d.setColor(new Color(255, 215, 80));
+            drawCenteredString(g2d, newHighScore ? "NEW #1 HIGH SCORE! ENTER YOUR PILOT NAME" : "TOP 5 SCORE! ENTER YOUR PILOT NAME", topY + 95);
+
+            int boxW = 360;
+            int boxH = 56;
+            int bx = (Constantes.WIDTH - boxW) / 2;
+            int by = topY + 122;
+
+            g2d.setColor(new Color(14, 22, 42, 235));
+            g2d.fillRoundRect(bx, by, boxW, boxH, 14, 14);
+            g2d.setColor(accent);
+            g2d.drawRoundRect(bx, by, boxW, boxH, 14, 14);
+
+            String cursor = ((nameBlinkTick / 20) % 2 == 0) ? "_" : " ";
+            String display = pilotNameInput.toString() + cursor;
+            g2d.setFont(Assets.fontMed);
+            g2d.setColor(Color.WHITE);
+            drawCenteredString(g2d, display, by + 37);
+
+            g2d.setFont(Assets.fontTiny);
+            g2d.setColor(new Color(175, 195, 225));
+            drawCenteredString(g2d, "SHIP: " + shipStyle.getDisplayName() + "   |   MAX " + HighScoreStore.MAX_NAME_LEN + " CHARS", by + 84);
+
+            g2d.setFont(Assets.fontSmall);
+            g2d.setColor(Color.WHITE);
+            drawCenteredString(g2d, "PRESS ENTER TO SAVE   (ESC TO SKIP)", by + 122);
+            return;
+        }
 
         g2d.setFont(Assets.fontSmall);
         if (newHighScore && puntaje > 0) {
@@ -691,32 +761,33 @@ public final class Estado_juego {
         int nextY = topY + 130;
         if (highScoreStore != null && !highScoreStore.getEntries().isEmpty()) {
             List<HighScoreStore.Entry> entries = highScoreStore.getEntries();
-            int panelW = 420;
-            int rowH = 26;
-            int panelH = 38 + entries.size() * rowH;
+            int panelW = 540;
+            int rowH = 28;
+            int panelH = 42 + entries.size() * rowH;
             int px = (Constantes.WIDTH - panelW) / 2;
             int py = topY + 108;
 
-            g2d.setColor(new Color(12, 18, 36, 190));
+            g2d.setColor(new Color(12, 18, 36, 200));
             g2d.fillRoundRect(px, py, panelW, panelH, 14, 14);
-            g2d.setColor(new Color(90, 115, 160, 130));
+            g2d.setColor(new Color(90, 115, 160, 140));
             g2d.drawRoundRect(px, py, panelW, panelH, 14, 14);
 
             g2d.setFont(Assets.fontTiny);
             g2d.setColor(new Color(180, 200, 230));
-            drawCenteredString(g2d, "TOP PILOTS", py + 22);
+            drawCenteredString(g2d, "TOP 5 PILOTS", py + 23);
 
             for (int i = 0; i < entries.size(); i++) {
                 HighScoreStore.Entry e = entries.get(i);
-                int ry = py + 46 + i * rowH;
+                int ry = py + 50 + i * rowH;
                 boolean isMine = (i + 1 == leaderboardRank && e.score == puntaje);
-                g2d.setColor(isMine ? new Color(255, 220, 85) : new Color(215, 225, 240));
-                g2d.drawString("#" + (i + 1) + "  " + e.score, px + 24, ry);
+                g2d.setColor(isMine ? new Color(255, 220, 85) : new Color(220, 230, 245));
+                g2d.drawString("#" + (i + 1) + "  " + e.playerName, px + 22, ry);
+                g2d.drawString(Integer.toString(e.score), px + 215, ry);
                 g2d.setColor(isMine ? new Color(255, 220, 85) : new Color(155, 175, 205));
-                g2d.drawString("WAVE " + e.wave, px + 185, ry);
-                g2d.drawString(e.shipName, px + 290, ry);
+                g2d.drawString("W" + e.wave, px + 325, ry);
+                g2d.drawString(e.shipName, px + 390, ry);
             }
-            nextY = py + panelH + 46;
+            nextY = py + panelH + 44;
         }
 
         g2d.setFont(Assets.fontSmall);
@@ -738,7 +809,9 @@ public final class Estado_juego {
 
     public boolean isPaused() { return paused; }
     public boolean isGameOver() { return gameOver; }
-    public boolean shouldRestart() { return gameOver && restartArmed && (Keyboard.enter || Keyboard.shoot); }
+    public boolean isEnteringName() { return enteringName; }
+    public String getPilotNameInput() { return pilotNameInput.toString(); }
+    public boolean shouldRestart() { return gameOver && !enteringName && restartArmed && (Keyboard.enter || Keyboard.shoot); }
     public boolean shouldReturnToTitle() { return returnToTitle; }
     public int getHighScore() { return highScore; }
     public int getPuntaje() { return puntaje; }

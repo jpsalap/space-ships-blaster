@@ -226,12 +226,12 @@ public class TitleScreen {
         g2d.setColor(new Color(4, 6, 16, 205));
         g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
 
-        int panelW = 500;
-        int panelH = 320;
+        int panelW = 620;
+        int panelH = 330;
         int px = (Constantes.WIDTH - panelW) / 2;
         int py = (Constantes.HEIGHT - panelH) / 2;
 
-        g2d.setColor(new Color(12, 18, 36, 235));
+        g2d.setColor(new Color(12, 18, 36, 238));
         g2d.fillRoundRect(px, py, panelW, panelH, 18, 18);
         g2d.setStroke(new BasicStroke(2.0f));
         g2d.setColor(accent);
@@ -239,23 +239,33 @@ public class TitleScreen {
 
         g2d.setFont(Assets.fontMed);
         g2d.setColor(Color.WHITE);
-        drawCentered(g2d, "TOP 5 PILOTS", py + 48);
+        drawCentered(g2d, "TOP 5 PILOTS", py + 46);
 
         List<HighScoreStore.Entry> entries = (highScoreStore != null) ? highScoreStore.getEntries() : null;
         if (entries == null || entries.isEmpty()) {
             g2d.setFont(Assets.fontSmall);
             g2d.setColor(new Color(165, 180, 205));
-            drawCentered(g2d, "NO SCORES RECORDED YET", py + 165);
+            drawCentered(g2d, "NO SCORES RECORDED YET", py + 170);
         } else {
+            g2d.setFont(Assets.fontTiny);
+            g2d.setColor(new Color(135, 155, 185));
+            g2d.drawString("PILOT", px + 34, py + 82);
+            g2d.drawString("SCORE", px + 260, py + 82);
+            g2d.drawString("WAVE", px + 380, py + 82);
+            g2d.drawString("SHIP", px + 460, py + 82);
+
             g2d.setFont(Assets.fontSmall);
             for (int i = 0; i < entries.size(); i++) {
                 HighScoreStore.Entry e = entries.get(i);
-                int ry = py + 100 + i * 36;
+                int ry = py + 114 + i * 36;
                 g2d.setColor(i == 0 ? new Color(255, 215, 80) : Color.WHITE);
-                g2d.drawString("#" + (i + 1) + "   " + e.score, px + 36, ry);
-                g2d.setColor(new Color(165, 185, 215));
-                g2d.drawString("WAVE " + e.wave, px + 215, ry);
-                g2d.drawString(e.shipName, px + 335, ry);
+                g2d.drawString("#" + (i + 1) + "  " + e.playerName, px + 34, ry);
+                g2d.drawString(Integer.toString(e.score), px + 260, ry);
+                g2d.setColor(i == 0 ? new Color(255, 215, 80) : new Color(165, 185, 215));
+                g2d.drawString("W" + e.wave, px + 380, ry);
+                g2d.setFont(Assets.fontTiny);
+                g2d.drawString(e.shipName, px + 460, ry);
+                g2d.setFont(Assets.fontSmall);
             }
         }
 

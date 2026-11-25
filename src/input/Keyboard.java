@@ -10,11 +10,15 @@ public class Keyboard implements KeyListener, FocusListener {
     private final boolean[] keys = new boolean[256];
     private final boolean[] prevKeys = new boolean[256];
     private final boolean[] justPressed = new boolean[256];
+    private final StringBuilder typedBuffer = new StringBuilder();
+    private int pendingBackspaces = 0;
 
     public static boolean up, left, right, shoot, enter, escape;
     public static boolean leftPressed, rightPressed, enterPressed, shootPressed, escapePressed;
     public static boolean pausePressed, mutePressed, fpsPressed, titlePressed;
     public static boolean dashPressed, scoresPressed;
+    public static String frameTypedChars = "";
+    public static int frameBackspaces = 0;
 
     public Keyboard() {
         up = false;
@@ -49,6 +53,15 @@ public class Keyboard implements KeyListener, FocusListener {
         titlePressed = justPressed[KeyEvent.VK_T];
         dashPressed = justPressed[KeyEvent.VK_SHIFT];
         scoresPressed = justPressed[KeyEvent.VK_H];
+
+        if (typedBuffer.length() > 0) {
+            frameTypedChars = typedBuffer.toString();
+            typedBuffer.setLength(0);
+        } else {
+            frameTypedChars = "";
+        }
+        frameBackspaces = pendingBackspaces;
+        pendingBackspaces = 0;
     }
 
     public synchronized void clearActionKeys() {
@@ -76,6 +89,10 @@ public class Keyboard implements KeyListener, FocusListener {
         titlePressed = false;
         dashPressed = false;
         scoresPressed = false;
+        typedBuffer.setLength(0);
+        pendingBackspaces = 0;
+        frameTypedChars = "";
+        frameBackspaces = 0;
     }
 
     public synchronized void clearAllKeys() {
@@ -101,11 +118,18 @@ public class Keyboard implements KeyListener, FocusListener {
         titlePressed = false;
         dashPressed = false;
         scoresPressed = false;
+        typedBuffer.setLength(0);
+        pendingBackspaces = 0;
+        frameTypedChars = "";
+        frameBackspaces = 0;
     }
 
     @Override
     public synchronized void keyPressed(KeyEvent e) {
         int keyCode = e.getKeyCode();
+        if (keyCode == KeyEvent.VK_BACK_SPACE) {
+            pendingBackspaces++;
+        }
         if (keyCode >= 0 && keyCode < keys.length) {
             keys[keyCode] = true;
         }
@@ -120,7 +144,14 @@ public class Keyboard implements KeyListener, FocusListener {
     }
 
     @Override
-    public void keyTyped(KeyEvent e) {
+    public synchronized void keyTyped(KeyEvent e) {
+        char ch = e.getKeyChar();
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+                || (ch >= '0' && ch <= '9') || ch == ' ' || ch == '-' || ch == '_') {
+            if (typedBuffer.length() < 32) {
+                typedBuffer.append(Character.toUpperCase(ch));
+            }
+        }
     }
 
     @Override

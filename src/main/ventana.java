@@ -86,7 +86,8 @@ public final class ventana extends JFrame implements Runnable {
 
     private void update() {
         keyb.update();
-        if (Keyboard.mutePressed) {
+        boolean typingName = (currentScreen == Screen.PLAYING && gamestate != null && gamestate.isEnteringName());
+        if (!typingName && Keyboard.mutePressed) {
             Sonidos.toggleMute();
         }
         if (Keyboard.fpsPressed) {
@@ -125,7 +126,7 @@ public final class ventana extends JFrame implements Runnable {
             titleScreen.setHighScore(highScore);
             titleScreen.resetRequests();
             currentScreen = Screen.TITLE;
-        } else if (gamestate.isGameOver() && Keyboard.escapePressed) {
+        } else if (gamestate.isGameOver() && !gamestate.isEnteringName() && Keyboard.escapePressed) {
             exitGame();
         }
     }
