@@ -30,7 +30,7 @@ public class ventana extends JFrame implements Runnable{//
     private Graphics g;
     
     private final int fps=60;
-    private double target_time= 1000000000/fps;
+    private double target_time= 1000000000.0/fps;
     private double delta=0;
     private int fpsrate=fps;
     
@@ -38,10 +38,8 @@ public class ventana extends JFrame implements Runnable{//
     private Keyboard keyb;
     public ventana(){
         setTitle("Space Ships Blaster");
-        setSize(Constantes.WIDTH,Constantes.HEIGHT);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(false);
-        setLocationRelativeTo(null);
                 
         canvas=new Canvas();
         keyb=new Keyboard();
@@ -52,8 +50,11 @@ public class ventana extends JFrame implements Runnable{//
         canvas.setFocusable(true);
         
         add(canvas);
+        pack();
+        setLocationRelativeTo(null);
         canvas.addKeyListener(keyb);
         setVisible(true);
+        canvas.requestFocus();
     }    
     public static void main(String[] args) {
         new ventana().start();
@@ -84,6 +85,7 @@ public class ventana extends JFrame implements Runnable{//
         g.setColor(Color.black);
         g.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
         gamestate.draw(g);
+        g.setColor(Color.WHITE);
         g.drawString(""+fpsrate, 10,20);
         
         //Fin dibujo
@@ -105,15 +107,23 @@ public class ventana extends JFrame implements Runnable{//
         
         while(running){
             now= System.nanoTime();
-            delta+=(now-lastTime)/target_time;
+            long elapsed=now-lastTime;
+            delta+=elapsed/target_time;
+            time+=elapsed;
             lastTime=now;
             if(delta>=1){
                 update();
                 draw();
                 delta--;
                 frames++;
+            }else{
+                try{
+                    Thread.sleep(1);
+                }catch(InterruptedException e){
+                    Thread.currentThread().interrupt();
+                }
             }
-            if(time>=1000000000){
+            if(time>=1000000000L){
                 fpsrate=frames;
                 frames=0;
                 time=0;

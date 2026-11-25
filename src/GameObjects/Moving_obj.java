@@ -26,12 +26,16 @@ public abstract class Moving_obj extends GameObject{
     }
     protected void collidesWith(){
         ArrayList<Moving_obj> moving_obj=gameState.getMoving_obj();
-        for(int i=0;i<moving_obj.size();i++){
-            Moving_obj m=moving_obj.get(i);
-            if(m.equals(this))
+        ArrayList<Moving_obj> snapshot=new ArrayList<Moving_obj>(moving_obj);
+        for(Moving_obj m : snapshot){
+            if(!moving_obj.contains(this)){
+                break;
+            }
+            if(m.equals(this) || !moving_obj.contains(m)){
                 continue;
+            }
             double distancia=m.getCenter().substract(getCenter()).getMagni();
-            if(distancia < m.width/2+width/2 && moving_obj.contains(this)){
+            if(distancia < m.width/2+width/2){
                 objectCollision(m, this);
             }
         }
@@ -43,11 +47,15 @@ public abstract class Moving_obj extends GameObject{
         if(b instanceof Jugador && ((Jugador)b).isSpawning()){
             return;
         }
-        if(!(a instanceof Asteroid && b instanceof Asteroid)){
-            gameState.playExplosion(getCenter());
-            a.destroy();
-            b.destroy();
+        if((a instanceof Asteroid && b instanceof Asteroid)
+                || (a instanceof Laser && b instanceof Laser)
+                || (a instanceof Laser && b instanceof Jugador)
+                || (a instanceof Jugador && b instanceof Laser)){
+            return;
         }
+        gameState.playExplosion(getCenter());
+        a.destroy();
+        b.destroy();
     }
     protected void destroy(){
         gameState.getMoving_obj().remove(this);

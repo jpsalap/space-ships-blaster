@@ -76,12 +76,15 @@ public class Estado_juego {
         explosiones.add(new Animacion(Assets.expl,50,posicion.substract(new Vector2D(Assets.expl[0].getWidth()/2,Assets.expl[0].getHeight()/2))));
     }
     public void update(){
-        for(int i=0;i<moving_obj.size();i++)
-            moving_obj.get(i).update();   
-        for(int i=0;i<explosiones.size();i++){
+        for(Moving_obj obj : new ArrayList<Moving_obj>(moving_obj)){
+            if(moving_obj.contains(obj)){
+                obj.update();
+            }
+        }
+        for(int i=explosiones.size()-1;i>=0;i--){
             Animacion anim = explosiones.get(i);
             anim.update();
-            if(anim.isRunning()){
+            if(!anim.isRunning()){
                 explosiones.remove(i);
             }
         }

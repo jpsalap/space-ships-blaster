@@ -20,7 +20,7 @@ public class Jugador extends Moving_obj{
     public Jugador(Vector2D posicion,Vector2D velocidad,double maxV,BufferedImage textura,Estado_juego gameState){
         super(posicion,velocidad,maxV,textura,gameState);
         this.gameState=gameState;
-        direccion=new Vector2D(0, 1);
+        direccion=new Vector2D(0, -1);
         aceleracion=new Vector2D();
         firerate=new Crono();
         spawningTime=new Crono();
@@ -38,29 +38,35 @@ public class Jugador extends Moving_obj{
                 visible=!visible;
             }
         }
-        if(Keyboard.shoot && !firerate.isRunning() && !spawning){
-            gameState.getMoving_obj().add(0,new Laser(getCenter().add(direccion.scale(width)),direccion,Constantes.vlaser,angulo,Assets.blueLaser,gameState));
-            firerate.run(Constantes.vdisparo);
-            Sonidos.Disparo.play();
-        }
         if(Keyboard.right){
             angulo +=Constantes.deltaangulo;
         }    
         if(Keyboard.left){
             angulo -=Constantes.deltaangulo;
         }
+        direccion=direccion.setDireccion(angulo-Math.PI/2);
+        if(Keyboard.shoot && !firerate.isRunning() && !spawning){
+            gameState.getMoving_obj().add(0,new Laser(getCenter().add(direccion.scale(width/2)),direccion,Constantes.vlaser,angulo,Assets.blueLaser,gameState));
+            firerate.run(Constantes.vdisparo);
+            Sonidos.Disparo.play();
+        }
         if(Keyboard.up){
             aceleracion=direccion.scale(Constantes.acc);
             acelerando=true;
-            Sonidos.propulsor.play();
+            Sonidos.propulsor.loop();
         }else{
-            if(velocidad.getMagni() !=0)
-                aceleracion=(velocidad.scale(-1).normalizar()).scale(Constantes.acc/2);
+            double decel=Constantes.acc/2;
+            if(velocidad.getMagni()>decel){
+                aceleracion=(velocidad.scale(-1).normalizar()).scale(decel);
+            }else{
+                velocidad=new Vector2D();
+                aceleracion=new Vector2D();
+            }
             acelerando=false;
+            Sonidos.propulsor.stop();
         }
         velocidad=velocidad.add(aceleracion);
         velocidad=velocidad.limitev(maxV);
-        direccion=direccion.setDireccion(angulo-Math.PI/2);
         posicion=posicion.add(velocidad);
         if(posicion.getX()>Constantes.WIDTH)
             posicion.setX(0);
@@ -77,6 +83,7 @@ public class Jugador extends Moving_obj{
     }
     @Override
     public void destroy(){
+        Sonidos.propulsor.stop();
         gameState.restarvida();
         if(Estado_juego.lives<=0){
             super.destroy();
@@ -89,6 +96,9 @@ public class Jugador extends Moving_obj{
     private void restablecer(){
         angulo=0;
         velocidad=new Vector2D();
+        aceleracion=new Vector2D();
+        direccion=new Vector2D(0, -1);
+        acelerando=false;
         posicion= new Vector2D(Constantes.WIDTH/2 - Assets.jugador.getWidth()/2,Constantes.HEIGHT/2 - Assets.jugador.getHeight()/2);
     }
     @Override

@@ -8,21 +8,25 @@ public class Crono {
     
     public Crono(){
         delta=0;
-        lastTime=0;
+        lastTime=System.currentTimeMillis();
         running=false;
     }
     public void run(long time){
         running=true;
         this.time=time;
+        delta=0;
+        lastTime=System.currentTimeMillis();
     }
     public void update(){
-        if(running)
-            delta +=System.currentTimeMillis() -lastTime;
-        if(delta>=time){
-            running=false;
-            delta=0;
+        long now=System.currentTimeMillis();
+        if(running){
+            delta += now - lastTime;
+            if(delta>=time){
+                running=false;
+                delta=0;
+            }
         }
-        lastTime=System.currentTimeMillis();
+        lastTime=now;
     }
     public boolean isRunning(){
         return running;

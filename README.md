@@ -24,14 +24,13 @@ Originally built in **2018** as a freshman-year *Algorithms & Programming* final
 
 ## Requirements
 
-- **Java 8** (recommended) — or any JDK up to Java 25.
-  > **Note:** Audio playback (`src/main/Sonidos.java`) uses `java.applet.AudioClip`, which was removed in JDK 26. Use JDK 8 (e.g., BellSoft Liberica 8 or Temurin 8) to compile and run as-is.
+- **Java 8 or newer** (tested on JDK 8 and JDK 26) — zero external dependencies, built purely on the Java Standard Library (`java.awt`, `javax.swing`, `javax.imageio`, `javax.sound.sampled`).
 
 ## How to Run
 
 ### IntelliJ IDEA
 1. Clone the repository and open the folder in IntelliJ IDEA.
-2. Go to **File → Project Structure → Project** and set the **SDK** to a **Java 8** JDK (`recursos/` is already marked as a Resources Root in `Space_ships.iml`).
+2. Go to **File → Project Structure → Project** and set the **SDK** to any installed JDK 8+ (`recursos/` is already marked as a Resources Root in `Space_ships.iml`).
 3. Run `main.ventana`.
 
 ### Command Line (macOS / Linux)
@@ -60,7 +59,8 @@ Space_ships/
 
 ## Restoration Notes
 
-When reviving the project after 8 years, the following minimal fixes were applied on top of the original codebase:
-- Configured `recursos/` as a Resources Root in `Space_ships.iml` and restored classpath-relative sound paths (`/Sounds/*.wav`) in `Sonidos.java`.
+When reviving the project after 8 years, the following fixes were applied on top of the original codebase:
+- Configured `recursos/` as a Resources Root in `Space_ships.iml` and migrated audio in `Sonidos.java` from the removed `java.applet.AudioClip` API to `javax.sound.sampled.Clip` (enabling modern JDK compatibility and clean thruster looping).
 - Fixed critical crashes: `ClassCastException` & broken spawn invulnerability in `Moving_obj`, keyboard `ArrayIndexOutOfBoundsException` on extended keys in `Keyboard`, startup thread race & `stop()` self-join deadlock in `ventana`, and `NumberFormatException` on negative lives in `Estado_juego`.
+- Fixed gameplay & rendering bugs: double player update on laser fire, laser-vs-laser/player collisions, safe list iteration for moving objects & explosions, ship deceleration jitter & stale respawn acceleration, `Crono` initial timer expiration, `Vector2D` zero-vector normalization, laser hitbox/draw alignment, visible/working FPS counter with CPU-friendly sleep pacing, and `pack()` window sizing.
 - Added a **Game Over** screen using the bundled `kenvector_future.ttf` font with **Enter / Space** to restart and **Esc** to quit.

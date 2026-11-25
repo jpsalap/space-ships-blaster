@@ -31,6 +31,9 @@ public class Vector2D {
     }
     public Vector2D normalizar(){
         double magni=getMagni();
+        if(magni==0){
+            return new Vector2D(0,0);
+        }
         return new Vector2D(x/magni,y/magni);
     }
     public Vector2D setDireccion(double angle){
