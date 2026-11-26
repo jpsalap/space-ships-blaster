@@ -9,6 +9,7 @@ import java.awt.Color;
 import java.awt.Composite;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
@@ -58,7 +59,6 @@ public class Jugador extends Moving_obj {
     private final ArrayList<Afterimage> afterimages = new ArrayList<Afterimage>();
 
     // Cached rendering assets & reusable geometry to eliminate per-frame allocations & software gradients
-    private final BufferedImage gameSprite;
     private final BufferedImage thrusterGlowActive;
     private final BufferedImage thrusterGlowIdle;
     private final Color plumeOuterActive;
@@ -83,7 +83,6 @@ public class Jugador extends Moving_obj {
         this.gameState = gameState;
         this.shipStyle = shipStyle != null ? shipStyle : ShipStyle.BLUE;
         this.controlScheme = controlScheme != null ? controlScheme : ControlScheme.CLASSIC;
-        this.gameSprite = this.shipStyle.getGameplayShipTexture();
         Color accent = this.shipStyle.getAccentColor();
         this.thrusterGlowActive = Assets.createRadialGlowSprite(26, accent, 175, 70);
         this.thrusterGlowIdle = Assets.createRadialGlowSprite(16, accent, 85, 25);
@@ -377,11 +376,10 @@ public class Jugador extends Moving_obj {
     public void draw(Graphics g) {
         Graphics2D G2D = (Graphics2D) g;
 
-        // Draw dash afterimages behind the ship (using pre-scaled sprite & fast bilinear interpolation)
+        // Draw dash afterimages behind the ship (full HD texture with fast bilinear interpolation)
         if (!afterimages.isEmpty()) {
             Composite prevComp = G2D.getComposite();
             AffineTransform prevTx = G2D.getTransform();
-            BufferedImage sprite = (gameSprite != null) ? gameSprite : textura;
             for (int i = 0; i < afterimages.size(); i++) {
                 Afterimage ai = afterimages.get(i);
                 float alpha = Math.max(0.05f, 0.50f * ((float) ai.life / ai.maxLife));
@@ -389,7 +387,7 @@ public class Jugador extends Moving_obj {
                 G2D.setTransform(prevTx);
                 G2D.translate(ai.cx, ai.cy);
                 G2D.rotate(ai.angle);
-                G2D.drawImage(sprite, -width / 2, -height / 2, width, height, null);
+                G2D.drawImage(textura, -width / 2, -height / 2, width, height, null);
             }
             G2D.setTransform(prevTx);
             G2D.setComposite(prevComp);
@@ -427,9 +425,14 @@ public class Jugador extends Moving_obj {
         drawThrusterPlume(G2D, -nozzleX, nozzleY, power, acelerando);
         drawThrusterPlume(G2D, nozzleX, nozzleY, power, acelerando);
 
-        // Draw pre-scaled crisp 44x44 gameplay sprite without triggering software bicubic fallback
-        BufferedImage sprite = (gameSprite != null) ? gameSprite : textura;
-        G2D.drawImage(sprite, -width / 2, -height / 2, width, height, null);
+        // Draw full 96x96 HD ship crisp on both 1x and Retina displays, restoring hint immediately so other sprites stay fast
+        Object prevInterp = G2D.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+        G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        G2D.drawImage(textura, -width / 2, -height / 2, width, height, null);
+        G2D.setRenderingHint(
+            RenderingHints.KEY_INTERPOLATION,
+            prevInterp != null ? prevInterp : RenderingHints.VALUE_INTERPOLATION_BILINEAR
+        );
 
         G2D.setTransform(prev);
 

@@ -12,7 +12,6 @@ import java.awt.image.BufferedImage;
 
 public class Assets {
     public static BufferedImage playerBlue, playerGreen, playerRed;
-    public static BufferedImage playerBlueGame, playerGreenGame, playerRedGame;
     public static BufferedImage lifeBlue, lifeGreen, lifeRed;
     public static BufferedImage ufo;
     public static BufferedImage blueLaser, greenLaser, redLaser;
@@ -30,11 +29,6 @@ public class Assets {
         playerBlue = Loader.ImageLoader("/naves/ship_blue.png");
         playerGreen = Loader.ImageLoader("/naves/ship_green.png");
         playerRed = Loader.ImageLoader("/naves/ship_red.png");
-
-        // Pre-scaled 44x44 gameplay sprites avoid expensive per-frame bicubic downscaling
-        playerBlueGame = Loader.scaleHighQuality(playerBlue, 44, 44);
-        playerGreenGame = Loader.scaleHighQuality(playerGreen, 44, 44);
-        playerRedGame = Loader.scaleHighQuality(playerRed, 44, 44);
 
         lifeBlue = Loader.ImageLoader("/vidas/life_blue.png");
         lifeGreen = Loader.ImageLoader("/vidas/life_green.png");

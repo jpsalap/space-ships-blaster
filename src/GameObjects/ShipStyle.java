@@ -58,17 +58,6 @@ public enum ShipStyle {
         }
     }
 
-    public BufferedImage getGameplayShipTexture() {
-        BufferedImage img;
-        switch (this) {
-            case GREEN: img = Assets.playerGreenGame; break;
-            case RED: img = Assets.playerRedGame; break;
-            case BLUE:
-            default: img = Assets.playerBlueGame; break;
-        }
-        return img != null ? img : getShipTexture();
-    }
-
     public BufferedImage getLaserTexture() {
         switch (this) {
             case GREEN: return Assets.greenLaser;
