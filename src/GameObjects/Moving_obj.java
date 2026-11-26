@@ -15,6 +15,7 @@ public abstract class Moving_obj extends GameObject {
     protected int width;
     protected int height;
     protected Estado_juego gameState;
+    protected boolean dead = false;
 
     public Moving_obj(Vector2D posicion, Vector2D velocidad, double maxV, BufferedImage textura, Estado_juego gameState) {
         super(posicion, textura);
@@ -27,34 +28,43 @@ public abstract class Moving_obj extends GameObject {
     }
 
     protected void collidesWith() {
+        if (dead) {
+            return;
+        }
         ArrayList<Moving_obj> moving_obj = gameState.getMoving_obj();
-        ArrayList<Moving_obj> snapshot = new ArrayList<Moving_obj>(moving_obj);
-        for (Moving_obj m : snapshot) {
-            if (!moving_obj.contains(this)) {
+        double selfCx = getCenterX();
+        double selfCy = getCenterY();
+        boolean selfIsUfo = (this instanceof Ufo);
+        double radiusB = (this instanceof Jugador) ? Math.min(width, height) * 0.36 : Math.min(width, height) * 0.46;
+        if (this instanceof Laser && ((Laser) this).isFromEnemy()) radiusB = 7;
+
+        // Iterate backward or over current size without O(N^3) contains() scans
+        for (int i = moving_obj.size() - 1; i >= 0; i--) {
+            if (dead) {
                 break;
             }
-            if (m.equals(this) || !moving_obj.contains(m)) {
+            if (i >= moving_obj.size()) {
                 continue;
             }
-            Vector2D ca = m.getCenter();
-            Vector2D cb = getCenter();
-            double dx = Math.abs(ca.getX() - cb.getX());
-            double dy = Math.abs(ca.getY() - cb.getY());
+            Moving_obj m = moving_obj.get(i);
+            if (m == this || m.dead) {
+                continue;
+            }
+            double dx = Math.abs(m.getCenterX() - selfCx);
+            double dy = Math.abs(m.getCenterY() - selfCy);
             // Account for seamless edge wrapping on ships & asteroids (UFOs do not wrap)
-            if (!(m instanceof Ufo) && !(this instanceof Ufo)) {
-                if (dx > Constantes.WIDTH / 2.0) {
+            if (!selfIsUfo && !(m instanceof Ufo)) {
+                if (dx > Constantes.WIDTH * 0.5) {
                     dx = Constantes.WIDTH - dx;
                 }
-                if (dy > Constantes.HEIGHT / 2.0) {
+                if (dy > Constantes.HEIGHT * 0.5) {
                     dy = Constantes.HEIGHT - dy;
                 }
             }
-            double distancia = Math.hypot(dx, dy);
             double radiusA = (m instanceof Jugador) ? Math.min(m.width, m.height) * 0.36 : Math.min(m.width, m.height) * 0.46;
-            double radiusB = (this instanceof Jugador) ? Math.min(width, height) * 0.36 : Math.min(width, height) * 0.46;
             if (m instanceof Laser && ((Laser) m).isFromEnemy()) radiusA = 7;
-            if (this instanceof Laser && ((Laser) this).isFromEnemy()) radiusB = 7;
-            if (distancia < radiusA + radiusB) {
+            double sumR = radiusA + radiusB;
+            if (dx < sumR && dy < sumR && (dx * dx + dy * dy) < (sumR * sumR)) {
                 objectCollision(m, this);
             }
         }
@@ -101,7 +111,20 @@ public abstract class Moving_obj extends GameObject {
     }
 
     protected void destroy() {
+        dead = true;
         gameState.getMoving_obj().remove(this);
+    }
+
+    public boolean isDead() {
+        return dead;
+    }
+
+    public double getCenterX() {
+        return posicion.getX() + width * 0.5;
+    }
+
+    public double getCenterY() {
+        return posicion.getY() + height * 0.5;
     }
 
     public Vector2D getCenter() {

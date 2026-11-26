@@ -54,6 +54,7 @@ public class Sonidos {
         private final float baseGainDb;
         private int nextIdx = 0;
         private float fadeLevel = 0.0f;
+        private float lastAppliedFade = -1.0f;
 
         public Sonido(String path, int poolSize, float gainDb) {
             this.baseGainDb = gainDb;
@@ -97,8 +98,21 @@ public class Sonidos {
             if (muted || loadedCount == 0) {
                 return;
             }
-            Clip clip = pool[nextIdx];
-            nextIdx = (nextIdx + 1) % loadedCount;
+            // Prefer an idle clip to avoid blocking CoreAudio stop/restart stalls on the game thread
+            Clip clip = null;
+            for (int i = 0; i < loadedCount; i++) {
+                int idx = (nextIdx + i) % loadedCount;
+                Clip candidate = pool[idx];
+                if (candidate != null && !candidate.isRunning()) {
+                    clip = candidate;
+                    nextIdx = (idx + 1) % loadedCount;
+                    break;
+                }
+            }
+            if (clip == null) {
+                clip = pool[nextIdx];
+                nextIdx = (nextIdx + 1) % loadedCount;
+            }
             if (clip == null) {
                 return;
             }
@@ -141,13 +155,17 @@ public class Sonidos {
                 fadeLevel = Math.max(0.0f, fadeLevel - 0.08f);
             }
             if (fadeLevel > 0.01f) {
-                float db = baseGainDb + (float) (20.0 * Math.log10(fadeLevel));
-                applyGain(clip, db);
+                if (Math.abs(fadeLevel - lastAppliedFade) > 0.005f) {
+                    float db = baseGainDb + (float) (20.0 * Math.log10(fadeLevel));
+                    applyGain(clip, db);
+                    lastAppliedFade = fadeLevel;
+                }
                 if (!clip.isRunning()) {
                     clip.setFramePosition(0);
                     clip.loop(Clip.LOOP_CONTINUOUSLY);
                 }
             } else {
+                lastAppliedFade = -1.0f;
                 if (clip.isRunning()) {
                     clip.stop();
                     clip.setFramePosition(0);
@@ -157,6 +175,7 @@ public class Sonidos {
 
         public synchronized void stop() {
             fadeLevel = 0.0f;
+            lastAppliedFade = -1.0f;
             for (Clip clip : pool) {
                 if (clip != null) {
                     if (clip.isRunning()) {

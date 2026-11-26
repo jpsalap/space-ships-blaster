@@ -76,6 +76,8 @@ public final class ventana extends JFrame implements Runnable {
         canvas.setMaximumSize(new Dimension(Constantes.WIDTH, Constantes.HEIGHT));
         canvas.setMinimumSize(new Dimension(Constantes.WIDTH, Constantes.HEIGHT));
         canvas.setFocusable(true);
+        canvas.setIgnoreRepaint(true);
+        setIgnoreRepaint(true);
 
         add(canvas);
         pack();
@@ -271,17 +273,28 @@ public final class ventana extends JFrame implements Runnable {
         while (running) {
             now = System.nanoTime();
             long elapsed = Math.min(Math.max(0L, now - lastTime), MAX_ELAPSED_NS);
-            delta = Math.min(delta + elapsed / target_time, 5.0);
+            delta = Math.min(delta + elapsed / target_time, 3.0);
             time += elapsed;
             lastTime = now;
-            if (delta >= 1) {
+
+            int updates = 0;
+            while (delta >= 1.0 && updates < 3) {
                 update();
+                delta -= 1.0;
+                updates++;
+            }
+            if (updates > 0) {
                 draw();
-                delta--;
                 frames++;
             } else {
+                long remainingNs = (long) ((1.0 - delta) * target_time);
+                long sleepMs = (remainingNs - 1_500_000L) / 1_000_000L;
                 try {
-                    Thread.sleep(1);
+                    if (sleepMs >= 1L) {
+                        Thread.sleep(sleepMs);
+                    } else {
+                        Thread.yield();
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }

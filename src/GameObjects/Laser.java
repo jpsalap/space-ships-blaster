@@ -1,11 +1,9 @@
 package GameObjects;
 
-import java.awt.Color;
+import graphics.Assets;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.RadialGradientPaint;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import math.Vector2D;
 import states.Estado_juego;
@@ -42,16 +40,11 @@ public class Laser extends Moving_obj {
     public void draw(Graphics g) {
         Graphics2D G2D = (Graphics2D) g;
         if (fromEnemy) {
-            // Glowing alien magenta plasma orb
-            float cx = (float) posicion.getX();
-            float cy = (float) posicion.getY();
-            RadialGradientPaint paint = new RadialGradientPaint(
-                new Point2D.Float(cx, cy), 11f,
-                new float[] { 0f, 0.45f, 1f },
-                new Color[] { Color.WHITE, new Color(255, 70, 235, 220), new Color(200, 20, 220, 0) }
-            );
-            G2D.setPaint(paint);
-            G2D.fillOval((int) (cx - 11), (int) (cy - 11), 22, 22);
+            // Pre-rendered glowing alien magenta plasma orb
+            BufferedImage orb = Assets.enemyPlasmaOrb;
+            if (orb != null) {
+                G2D.drawImage(orb, (int) (posicion.getX() - orb.getWidth() / 2.0), (int) (posicion.getY() - orb.getHeight() / 2.0), null);
+            }
             return;
         }
         at = AffineTransform.getTranslateInstance(posicion.getX() - width / 2, posicion.getY() - height / 2);
@@ -62,5 +55,15 @@ public class Laser extends Moving_obj {
     @Override
     public Vector2D getCenter() {
         return new Vector2D(posicion.getX(), posicion.getY());
+    }
+
+    @Override
+    public double getCenterX() {
+        return posicion.getX();
+    }
+
+    @Override
+    public double getCenterY() {
+        return posicion.getY();
     }
 }

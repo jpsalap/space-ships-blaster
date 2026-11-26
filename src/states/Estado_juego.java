@@ -156,8 +156,10 @@ public final class Estado_juego {
         return 1.0 + Math.min(1.8, (wave - 1) * 0.18);
     }
 
+    private static final int MAX_PARTICLES = 200;
+
     public void addExhaustParticle(Vector2D pos, Vector2D vel, Color color) {
-        if (particles.size() < 260) {
+        if (particles.size() < MAX_PARTICLES) {
             particles.add(new Particle(pos, vel, color, 3.0 + Math.random() * 2.4, 18 + (int) (Math.random() * 14), true));
         }
     }
@@ -166,7 +168,7 @@ public final class Estado_juego {
         triggerShake(4, 2.5);
         Vector2D back = dir.scale(-1);
         double backAngle = Math.atan2(back.getY(), back.getX());
-        for (int i = 0; i < 16; i++) {
+        for (int i = 0; i < 16 && particles.size() < MAX_PARTICLES; i++) {
             double a = backAngle + (Math.random() - 0.5) * 1.1;
             double sp = 2.0 + Math.random() * 4.2;
             Color c = (i % 3 == 0) ? Color.WHITE : accent;
@@ -263,7 +265,7 @@ public final class Estado_juego {
     }
 
     private void spawnParticles(Vector2D center, int count, Color[] palette, double minSpeed, double maxSpeed, int minLife, int maxLife) {
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < count && particles.size() < MAX_PARTICLES; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
             Vector2D vel = new Vector2D(Math.cos(angle) * speed, Math.sin(angle) * speed);
@@ -448,7 +450,7 @@ public final class Estado_juego {
         }
 
         for (Moving_obj obj : new ArrayList<Moving_obj>(moving_obj)) {
-            if (moving_obj.contains(obj)) {
+            if (!obj.isDead()) {
                 obj.update();
             }
         }
@@ -595,9 +597,12 @@ public final class Estado_juego {
         for (int i = 0; i < powerUps.size(); i++) {
             powerUps.get(i).draw(G2D);
         }
+        // Small sparks/exhaust particles render much faster without per-oval AA rasterization
+        G2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         for (int i = 0; i < particles.size(); i++) {
             particles.get(i).draw(G2D);
         }
+        G2D.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         for (int i = 0; i < moving_obj.size(); i++) {
             moving_obj.get(i).draw(g);
         }

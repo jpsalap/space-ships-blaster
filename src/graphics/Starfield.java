@@ -6,22 +6,26 @@ import java.awt.Graphics2D;
 import java.awt.MultipleGradientPaint;
 import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
+import java.awt.Transparency;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.util.Random;
 
 public class Starfield {
+    private static final int ALPHA_STEPS = 16;
+
     private static class Star {
         double x, y;
         int layer; // 0 = far, 1 = mid, 2 = near
-        double size;
+        int sizePx;
+        int paletteIdx;
         double twinklePhase;
         double twinkleSpeed;
-        Color baseColor;
     }
 
     private final BufferedImage nebulaBackdrop;
     private final Star[] stars;
+    private final Color[][] colorLut;
 
     public Starfield(int width, int height) {
         nebulaBackdrop = createNebulaBackdrop(width, height);
@@ -35,22 +39,31 @@ public class Starfield {
             new Color(255, 232, 195),
             new Color(210, 200, 255)
         };
+        colorLut = new Color[palette.length][ALPHA_STEPS];
+        for (int p = 0; p < palette.length; p++) {
+            Color base = palette[p];
+            for (int a = 0; a < ALPHA_STEPS; a++) {
+                int alpha = 70 + (int) ((255 - 70) * (a / (double) (ALPHA_STEPS - 1)));
+                colorLut[p][a] = new Color(base.getRed(), base.getGreen(), base.getBlue(), alpha);
+            }
+        }
         for (int i = 0; i < count; i++) {
             Star s = new Star();
             s.x = rng.nextDouble() * width;
             s.y = rng.nextDouble() * height;
             double r = rng.nextDouble();
             s.layer = (r < 0.55) ? 0 : (r < 0.85 ? 1 : 2);
-            s.size = s.layer == 0 ? 1.2 : (s.layer == 1 ? 2.0 : 2.8);
+            s.sizePx = s.layer == 0 ? 1 : (s.layer == 1 ? 2 : 3);
             s.twinklePhase = rng.nextDouble() * Math.PI * 2;
             s.twinkleSpeed = 0.02 + rng.nextDouble() * 0.05;
-            s.baseColor = palette[rng.nextInt(palette.length)];
+            s.paletteIdx = rng.nextInt(palette.length);
             stars[i] = s;
         }
     }
 
     private BufferedImage createNebulaBackdrop(int width, int height) {
-        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        // Opaque compatible image allows fast GPU blitting with zero per-frame alpha compositing
+        BufferedImage img = Loader.createCompatibleImage(width, height, Transparency.OPAQUE);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
@@ -121,13 +134,20 @@ public class Starfield {
 
     public void draw(Graphics2D g2d) {
         g2d.drawImage(nebulaBackdrop, 0, 0, null);
-        for (Star s : stars) {
+        for (int i = 0; i < stars.length; i++) {
+            Star s = stars[i];
             double twinkle = 0.55 + 0.45 * Math.sin(s.twinklePhase);
-            int minAlpha = s.layer == 0 ? 70 : (s.layer == 1 ? 120 : 170);
-            int alpha = Math.min(255, (int) (minAlpha + (255 - minAlpha) * twinkle));
-            g2d.setColor(new Color(s.baseColor.getRed(), s.baseColor.getGreen(), s.baseColor.getBlue(), alpha));
-            int sz = (int) Math.round(s.size);
-            g2d.fillOval((int) s.x, (int) s.y, sz, sz);
+            int minIdx = s.layer == 0 ? 0 : (s.layer == 1 ? 4 : 8);
+            int idx = minIdx + (int) ((ALPHA_STEPS - 1 - minIdx) * twinkle);
+            if (idx >= ALPHA_STEPS) idx = ALPHA_STEPS - 1;
+            g2d.setColor(colorLut[s.paletteIdx][idx]);
+            int sx = (int) s.x;
+            int sy = (int) s.y;
+            if (s.sizePx <= 2) {
+                g2d.fillRect(sx, sy, s.sizePx, s.sizePx);
+            } else {
+                g2d.fillOval(sx, sy, s.sizePx, s.sizePx);
+            }
         }
     }
 }

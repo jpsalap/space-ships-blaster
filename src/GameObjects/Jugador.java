@@ -1,20 +1,16 @@
 package GameObjects;
 
+import graphics.Assets;
 import input.ControlScheme;
 import input.Keyboard;
 import input.MouseInput;
 import java.awt.AlphaComposite;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Composite;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.RadialGradientPaint;
-import java.awt.RenderingHints;
-import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import main.Sonidos;
@@ -61,6 +57,17 @@ public class Jugador extends Moving_obj {
     private Vector2D dashDir = new Vector2D(0, -1);
     private final ArrayList<Afterimage> afterimages = new ArrayList<Afterimage>();
 
+    // Cached rendering assets & reusable geometry to eliminate per-frame allocations & software gradients
+    private final BufferedImage gameSprite;
+    private final BufferedImage thrusterGlowActive;
+    private final BufferedImage thrusterGlowIdle;
+    private final Color plumeOuterActive;
+    private final Color plumeOuterIdle;
+    private final Color plumeInnerActive = new Color(255, 255, 255, 245);
+    private final Color plumeInnerIdle = new Color(255, 255, 255, 170);
+    private final Path2D.Double outerPlume = new Path2D.Double();
+    private final Path2D.Double innerPlume = new Path2D.Double();
+
     public Jugador(Vector2D posicion, Vector2D velocidad, double maxV, BufferedImage textura, Estado_juego gameState) {
         this(posicion, velocidad, maxV, textura, gameState, ShipStyle.BLUE);
     }
@@ -76,6 +83,12 @@ public class Jugador extends Moving_obj {
         this.gameState = gameState;
         this.shipStyle = shipStyle != null ? shipStyle : ShipStyle.BLUE;
         this.controlScheme = controlScheme != null ? controlScheme : ControlScheme.CLASSIC;
+        this.gameSprite = this.shipStyle.getGameplayShipTexture();
+        Color accent = this.shipStyle.getAccentColor();
+        this.thrusterGlowActive = Assets.createRadialGlowSprite(26, accent, 175, 70);
+        this.thrusterGlowIdle = Assets.createRadialGlowSprite(16, accent, 85, 25);
+        this.plumeOuterActive = new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 235);
+        this.plumeOuterIdle = new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 150);
         direccion = new Vector2D(0, -1);
         aceleracion = new Vector2D();
         firerate = new Crono();
@@ -364,11 +377,11 @@ public class Jugador extends Moving_obj {
     public void draw(Graphics g) {
         Graphics2D G2D = (Graphics2D) g;
 
-        // Draw dash afterimages behind the ship
+        // Draw dash afterimages behind the ship (using pre-scaled sprite & fast bilinear interpolation)
         if (!afterimages.isEmpty()) {
             Composite prevComp = G2D.getComposite();
             AffineTransform prevTx = G2D.getTransform();
-            G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            BufferedImage sprite = (gameSprite != null) ? gameSprite : textura;
             for (int i = 0; i < afterimages.size(); i++) {
                 Afterimage ai = afterimages.get(i);
                 float alpha = Math.max(0.05f, 0.50f * ((float) ai.life / ai.maxLife));
@@ -376,7 +389,7 @@ public class Jugador extends Moving_obj {
                 G2D.setTransform(prevTx);
                 G2D.translate(ai.cx, ai.cy);
                 G2D.rotate(ai.angle);
-                G2D.drawImage(textura, -width / 2, -height / 2, width, height, null);
+                G2D.drawImage(sprite, -width / 2, -height / 2, width, height, null);
             }
             G2D.setTransform(prevTx);
             G2D.setComposite(prevComp);
@@ -414,13 +427,13 @@ public class Jugador extends Moving_obj {
         drawThrusterPlume(G2D, -nozzleX, nozzleY, power, acelerando);
         drawThrusterPlume(G2D, nozzleX, nozzleY, power, acelerando);
 
-        // Draw crisp HD 96x96 ship scaled cleanly to compact 44x44
-        G2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-        G2D.drawImage(textura, -width / 2, -height / 2, width, height, null);
+        // Draw pre-scaled crisp 44x44 gameplay sprite without triggering software bicubic fallback
+        BufferedImage sprite = (gameSprite != null) ? gameSprite : textura;
+        G2D.drawImage(sprite, -width / 2, -height / 2, width, height, null);
 
         G2D.setTransform(prev);
 
-        // Energy shield bubble when active
+        // Pre-rendered energy shield bubble when active
         if (shieldFrames > 0) {
             if (shieldFrames > 120 || (flameTick / 4 + shieldFrames / 5) % 2 == 0) {
                 drawShieldBubble(G2D, cx, cy);
@@ -432,58 +445,37 @@ public class Jugador extends Moving_obj {
         double flicker = 0.85 + 0.30 * Math.sin(flameTick * 1.15 + nx * 1.7);
         double len = (active ? 26.0 : 12.0) * power * flicker + (active ? Math.random() * 6.0 : 0.0);
         double wOuter = (active ? 5.2 : 3.2) * Math.min(1.15, power);
-        Color accent = shipStyle.getAccentColor();
 
-        float haloR = (float) Math.max(7.0, len * 0.9);
-        RadialGradientPaint halo = new RadialGradientPaint(
-            new Point2D.Double(nx, ny + len * 0.32), haloR,
-            new float[] { 0f, 0.5f, 1f },
-            new Color[] {
-                new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), active ? 175 : 85),
-                new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), active ? 70 : 25),
-                new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0)
-            }
-        );
-        g2d.setPaint(halo);
-        g2d.fillOval((int) (nx - haloR), (int) (ny + len * 0.32 - haloR), (int) (haloR * 2), (int) (haloR * 2));
+        int haloR = (int) Math.max(7.0, len * 0.9);
+        BufferedImage glowSprite = active ? thrusterGlowActive : thrusterGlowIdle;
+        if (glowSprite != null) {
+            g2d.drawImage(glowSprite, (int) (nx - haloR), (int) (ny + len * 0.32 - haloR), haloR * 2, haloR * 2, null);
+        }
 
-        Path2D outer = new Path2D.Double();
-        outer.moveTo(nx - wOuter, ny);
-        outer.quadTo(nx - wOuter * 0.65, ny + len * 0.55, nx, ny + len);
-        outer.quadTo(nx + wOuter * 0.65, ny + len * 0.55, nx + wOuter, ny);
-        outer.closePath();
-        g2d.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), active ? 235 : 150));
-        g2d.fill(outer);
+        outerPlume.reset();
+        outerPlume.moveTo(nx - wOuter, ny);
+        outerPlume.quadTo(nx - wOuter * 0.65, ny + len * 0.55, nx, ny + len);
+        outerPlume.quadTo(nx + wOuter * 0.65, ny + len * 0.55, nx + wOuter, ny);
+        outerPlume.closePath();
+        g2d.setColor(active ? plumeOuterActive : plumeOuterIdle);
+        g2d.fill(outerPlume);
 
         double coreLen = len * 0.62;
         double wCore = wOuter * 0.54;
-        Path2D inner = new Path2D.Double();
-        inner.moveTo(nx - wCore, ny);
-        inner.quadTo(nx - wCore * 0.5, ny + coreLen * 0.55, nx, ny + coreLen);
-        inner.quadTo(nx + wCore * 0.5, ny + coreLen * 0.55, nx + wCore, ny);
-        inner.closePath();
-        g2d.setColor(new Color(255, 255, 255, active ? 245 : 170));
-        g2d.fill(inner);
+        innerPlume.reset();
+        innerPlume.moveTo(nx - wCore, ny);
+        innerPlume.quadTo(nx - wCore * 0.5, ny + coreLen * 0.55, nx, ny + coreLen);
+        innerPlume.quadTo(nx + wCore * 0.5, ny + coreLen * 0.55, nx + wCore, ny);
+        innerPlume.closePath();
+        g2d.setColor(active ? plumeInnerActive : plumeInnerIdle);
+        g2d.fill(innerPlume);
     }
 
     private void drawShieldBubble(Graphics2D g2d, double cx, double cy) {
-        Stroke prevStroke = g2d.getStroke();
-        float r = SHIP_SIZE * 0.72f;
-        RadialGradientPaint paint = new RadialGradientPaint(
-            new Point2D.Double(cx, cy), r,
-            new float[] { 0.45f, 0.82f, 1.0f },
-            new Color[] {
-                new Color(75, 220, 255, 16),
-                new Color(75, 220, 255, 65),
-                new Color(140, 245, 255, 165)
-            }
-        );
-        g2d.setPaint(paint);
-        g2d.fillOval((int) (cx - r), (int) (cy - r), (int) (r * 2), (int) (r * 2));
-        g2d.setStroke(new BasicStroke(1.8f));
-        g2d.setColor(new Color(120, 240, 255, 195));
-        g2d.drawOval((int) (cx - r), (int) (cy - r), (int) (r * 2), (int) (r * 2));
-        g2d.setStroke(prevStroke);
+        BufferedImage bubble = Assets.shieldBubbleSprite;
+        if (bubble != null) {
+            g2d.drawImage(bubble, (int) (cx - bubble.getWidth() / 2.0), (int) (cy - bubble.getHeight() / 2.0), null);
+        }
     }
 
     private static double wrapAngle(double a) {
