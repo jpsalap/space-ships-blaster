@@ -36,7 +36,20 @@ public abstract class Moving_obj extends GameObject {
             if (m.equals(this) || !moving_obj.contains(m)) {
                 continue;
             }
-            double distancia = m.getCenter().substract(getCenter()).getMagni();
+            Vector2D ca = m.getCenter();
+            Vector2D cb = getCenter();
+            double dx = Math.abs(ca.getX() - cb.getX());
+            double dy = Math.abs(ca.getY() - cb.getY());
+            // Account for seamless edge wrapping on ships & asteroids (UFOs do not wrap)
+            if (!(m instanceof Ufo) && !(this instanceof Ufo)) {
+                if (dx > Constantes.WIDTH / 2.0) {
+                    dx = Constantes.WIDTH - dx;
+                }
+                if (dy > Constantes.HEIGHT / 2.0) {
+                    dy = Constantes.HEIGHT - dy;
+                }
+            }
+            double distancia = Math.hypot(dx, dy);
             double radiusA = (m instanceof Jugador) ? Math.min(m.width, m.height) * 0.36 : Math.min(m.width, m.height) * 0.46;
             double radiusB = (this instanceof Jugador) ? Math.min(width, height) * 0.36 : Math.min(width, height) * 0.46;
             if (m instanceof Laser && ((Laser) m).isFromEnemy()) radiusA = 7;

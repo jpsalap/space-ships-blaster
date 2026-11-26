@@ -9,6 +9,7 @@ public class Keyboard implements KeyListener, FocusListener {
 
     private final boolean[] keys = new boolean[256];
     private final boolean[] prevKeys = new boolean[256];
+    private final boolean[] pressedSinceUpdate = new boolean[256];
     private final boolean[] justPressed = new boolean[256];
     private final StringBuilder typedBuffer = new StringBuilder();
     private int pendingBackspaces = 0;
@@ -32,7 +33,8 @@ public class Keyboard implements KeyListener, FocusListener {
 
     public synchronized void update() {
         for (int i = 0; i < keys.length; i++) {
-            justPressed[i] = keys[i] && !prevKeys[i];
+            justPressed[i] = pressedSinceUpdate[i] || (keys[i] && !prevKeys[i]);
+            pressedSinceUpdate[i] = false;
             prevKeys[i] = keys[i];
         }
         // Arrows OR WASD (down/S only used in Direct 8-Way and Mouse Aim modes)
@@ -81,6 +83,7 @@ public class Keyboard implements KeyListener, FocusListener {
         for (int code : toClear) {
             keys[code] = false;
             prevKeys[code] = false;
+            pressedSinceUpdate[code] = false;
             justPressed[code] = false;
         }
         shoot = false;
@@ -104,6 +107,7 @@ public class Keyboard implements KeyListener, FocusListener {
         for (int i = 0; i < keys.length; i++) {
             keys[i] = false;
             prevKeys[i] = false;
+            pressedSinceUpdate[i] = false;
             justPressed[i] = false;
         }
         up = false;
@@ -138,6 +142,9 @@ public class Keyboard implements KeyListener, FocusListener {
             pendingBackspaces++;
         }
         if (keyCode >= 0 && keyCode < keys.length) {
+            if (!keys[keyCode]) {
+                pressedSinceUpdate[keyCode] = true;
+            }
             keys[keyCode] = true;
         }
     }

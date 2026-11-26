@@ -14,6 +14,7 @@ import java.awt.event.WindowEvent;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 import GameObjects.Constantes;
 import GameObjects.ShipStyle;
 import graphics.Assets;
@@ -88,8 +89,7 @@ public final class ventana extends JFrame implements Runnable {
             @Override
             public void windowClosing(WindowEvent e) {
                 running = false;
-                Sonidos.propulsor.stop();
-                Sonidos.espacio.stop();
+                Sonidos.closeAll();
             }
         });
         setVisible(true);
@@ -107,7 +107,28 @@ public final class ventana extends JFrame implements Runnable {
     private void updateCursorVisibility(boolean hide) {
         if (hide != cursorHidden) {
             cursorHidden = hide;
-            canvas.setCursor(hide ? blankCursor : Cursor.getDefaultCursor());
+            final Cursor targetCursor = hide ? blankCursor : Cursor.getDefaultCursor();
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    canvas.setCursor(targetCursor);
+                }
+            });
+        }
+    }
+
+    private void syncMouseFromCanvas() {
+        if (GraphicsEnvironment.isHeadless()) {
+            return;
+        }
+        try {
+            if (canvas.isShowing()) {
+                Point p = canvas.getMousePosition();
+                if (p != null) {
+                    mouse.syncPointer(p.x, p.y, true);
+                }
+            }
+        } catch (Exception ignored) {
         }
     }
 
@@ -135,6 +156,7 @@ public final class ventana extends JFrame implements Runnable {
             if (titleScreen.shouldStart()) {
                 keyb.clearActionKeys();
                 mouse.clearButtons();
+                syncMouseFromCanvas();
                 titleScreen.resetRequests();
                 gamestate = new Estado_juego(selectedShip, highScore, highScoreStore, controlScheme);
                 currentScreen = Screen.PLAYING;
@@ -144,11 +166,18 @@ public final class ventana extends JFrame implements Runnable {
             return;
         }
 
+        ControlScheme prevScheme = controlScheme;
         gamestate.update();
         controlScheme = gamestate.getControlScheme();
+        if (controlScheme == ControlScheme.MOUSE_AIM && prevScheme != ControlScheme.MOUSE_AIM) {
+            syncMouseFromCanvas();
+        }
         highScore = Math.max(highScore, gamestate.getHighScore());
 
-        boolean hideCursor = (controlScheme == ControlScheme.MOUSE_AIM && !gamestate.isPaused() && !gamestate.isGameOver());
+        boolean hideCursor = (controlScheme == ControlScheme.MOUSE_AIM
+            && MouseInput.inside
+            && !gamestate.isPaused()
+            && !gamestate.isGameOver());
         updateCursorVisibility(hideCursor);
 
         if (!gamestate.isPaused()) {
@@ -159,6 +188,7 @@ public final class ventana extends JFrame implements Runnable {
         if (gamestate.shouldRestart()) {
             keyb.clearActionKeys();
             mouse.clearButtons();
+            syncMouseFromCanvas();
             gamestate = new Estado_juego(selectedShip, highScore, highScoreStore, controlScheme);
         } else if (gamestate.shouldReturnToTitle()) {
             keyb.clearActionKeys();
@@ -168,43 +198,53 @@ public final class ventana extends JFrame implements Runnable {
             titleScreen.setControlScheme(controlScheme);
             titleScreen.resetRequests();
             currentScreen = Screen.TITLE;
-        } else if (gamestate.isGameOver() && !gamestate.isEnteringName() && Keyboard.escapePressed) {
+        } else if (gamestate.shouldQuitFromGameOver()) {
             exitGame();
         }
     }
 
     private void exitGame() {
         running = false;
-        Sonidos.propulsor.stop();
-        Sonidos.espacio.stop();
+        Sonidos.closeAll();
         dispose();
         System.exit(0);
     }
 
     private void draw() {
-        bs = canvas.getBufferStrategy();
-        if (bs == null) {
-            canvas.createBufferStrategy(3);
+        if (!canvas.isDisplayable()) {
             return;
         }
-        g = bs.getDrawGraphics();
-        Graphics2D g2d = (Graphics2D) g;
+        try {
+            bs = canvas.getBufferStrategy();
+            if (bs == null) {
+                canvas.createBufferStrategy(3);
+                return;
+            }
+            do {
+                do {
+                    g = bs.getDrawGraphics();
+                    try {
+                        Graphics2D g2d = (Graphics2D) g;
+                        starfield.draw(g2d);
+                        if (currentScreen == Screen.TITLE) {
+                            titleScreen.draw(g2d);
+                        } else {
+                            gamestate.draw(g);
+                        }
 
-        starfield.draw(g2d);
-        if (currentScreen == Screen.TITLE) {
-            titleScreen.draw(g2d);
-        } else {
-            gamestate.draw(g);
+                        if (showFps) {
+                            g2d.setFont(Assets.fontTiny);
+                            g2d.setColor(new Color(180, 255, 180, 200));
+                            g2d.drawString("FPS: " + fpsrate, 12, Constantes.HEIGHT - 12);
+                        }
+                    } finally {
+                        g.dispose();
+                    }
+                } while (bs.contentsRestored());
+                bs.show();
+            } while (bs.contentsLost());
+        } catch (IllegalStateException ignored) {
         }
-
-        if (showFps) {
-            g2d.setFont(Assets.fontTiny);
-            g2d.setColor(new Color(180, 255, 180, 200));
-            g2d.drawString("FPS: " + fpsrate, 12, Constantes.HEIGHT - 12);
-        }
-
-        g.dispose();
-        bs.show();
     }
 
     private void inicio() {

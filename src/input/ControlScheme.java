@@ -3,8 +3,11 @@ package input;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 
 public enum ControlScheme {
     CLASSIC("CLASSIC", "A/D OR ARROWS: ROTATE  |  W / UP: THRUST  |  SPACE: SHOOT  |  SHIFT: DASH"),
@@ -55,7 +58,7 @@ public enum ControlScheme {
         if (file == null || !file.isFile()) {
             return CLASSIC;
         }
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {
                 if (line.startsWith("controls=")) {
@@ -73,7 +76,7 @@ public enum ControlScheme {
 
     public void save(File file) {
         if (file == null) return;
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
+        try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
             bw.write("controls=" + name());
             bw.newLine();
         } catch (Exception ignored) {

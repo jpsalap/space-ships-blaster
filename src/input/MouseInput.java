@@ -1,11 +1,11 @@
 package input;
 
+import java.awt.Component;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import javax.swing.SwingUtilities;
 
 public class MouseInput implements MouseListener, MouseMotionListener, FocusListener {
     private int curX = 500;
@@ -14,6 +14,7 @@ public class MouseInput implements MouseListener, MouseMotionListener, FocusList
     private boolean leftHeld = false;
     private boolean rightHeld = false;
     private boolean prevRightHeld = false;
+    private boolean rightClickQueued = false;
 
     public static int x = 500;
     public static int y = 250;
@@ -26,28 +27,44 @@ public class MouseInput implements MouseListener, MouseMotionListener, FocusList
         y = curY;
         inside = curInside;
         leftDown = leftHeld;
-        rightPressed = rightHeld && !prevRightHeld;
+        rightPressed = rightClickQueued || (rightHeld && !prevRightHeld);
+        rightClickQueued = false;
         prevRightHeld = rightHeld;
+    }
+
+    public synchronized void syncPointer(int px, int py, boolean isInside) {
+        curX = px;
+        curY = py;
+        curInside = isInside;
+        x = px;
+        y = py;
+        inside = isInside;
     }
 
     public synchronized void clearButtons() {
         leftHeld = false;
         rightHeld = false;
         prevRightHeld = false;
+        rightClickQueued = false;
         leftDown = false;
         rightPressed = false;
     }
 
     @Override
     public synchronized void mousePressed(MouseEvent e) {
+        Component comp = e.getComponent();
+        if (comp != null && !comp.isFocusOwner()) {
+            comp.requestFocusInWindow();
+        }
         curX = e.getX();
         curY = e.getY();
         curInside = true;
-        if (SwingUtilities.isLeftMouseButton(e)) {
+        int btn = e.getButton();
+        if (btn == MouseEvent.BUTTON1) {
             leftHeld = true;
-        }
-        if (SwingUtilities.isRightMouseButton(e)) {
+        } else if (btn == MouseEvent.BUTTON3) {
             rightHeld = true;
+            rightClickQueued = true;
         }
     }
 
@@ -55,10 +72,10 @@ public class MouseInput implements MouseListener, MouseMotionListener, FocusList
     public synchronized void mouseReleased(MouseEvent e) {
         curX = e.getX();
         curY = e.getY();
-        if (SwingUtilities.isLeftMouseButton(e)) {
+        int btn = e.getButton();
+        if (btn == MouseEvent.BUTTON1) {
             leftHeld = false;
-        }
-        if (SwingUtilities.isRightMouseButton(e)) {
+        } else if (btn == MouseEvent.BUTTON3) {
             rightHeld = false;
         }
     }

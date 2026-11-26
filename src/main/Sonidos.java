@@ -7,18 +7,24 @@ import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 
 public class Sonidos {
-    public static final Sonido Disparo = new Sonido("/Sounds/disparo.wav", 6, -4.0f);
+    // Kept comfortably below JavaSound's 32-line software mixer limit (22 total clips)
+    public static final Sonido Disparo = new Sonido("/Sounds/disparo.wav", 4, -4.0f);
     public static final Sonido propulsor = new Sonido("/Sounds/propulsor.wav", 1, -9.5f);
-    public static final Sonido explosion = new Sonido("/Sounds/explosion.wav", 5, -3.0f);
-    public static final Sonido playerHit = new Sonido("/Sounds/player_hit.wav", 2, -2.0f);
-    public static final Sonido wave = new Sonido("/Sounds/wave.wav", 2, -4.0f);
+    public static final Sonido explosion = new Sonido("/Sounds/explosion.wav", 4, -3.0f);
+    public static final Sonido playerHit = new Sonido("/Sounds/player_hit.wav", 1, -2.0f);
+    public static final Sonido wave = new Sonido("/Sounds/wave.wav", 1, -4.0f);
     public static final Sonido gameOver = new Sonido("/Sounds/gameover.wav", 1, -3.0f);
-    public static final Sonido ufoLaser = new Sonido("/Sounds/ufo_laser.wav", 4, -3.5f);
-    public static final Sonido ufoEnter = new Sonido("/Sounds/ufo_enter.wav", 2, -4.5f);
+    public static final Sonido ufoLaser = new Sonido("/Sounds/ufo_laser.wav", 3, -3.5f);
+    public static final Sonido ufoEnter = new Sonido("/Sounds/ufo_enter.wav", 1, -4.5f);
     public static final Sonido dash = new Sonido("/Sounds/dash.wav", 2, -4.5f);
-    public static final Sonido powerUp = new Sonido("/Sounds/powerup.wav", 3, -3.0f);
-    public static final Sonido extraLife = new Sonido("/Sounds/extralife.wav", 2, -2.5f);
+    public static final Sonido powerUp = new Sonido("/Sounds/powerup.wav", 2, -3.0f);
+    public static final Sonido extraLife = new Sonido("/Sounds/extralife.wav", 1, -2.5f);
     public static final Sonido espacio = new Sonido("/Sounds/espacio.wav", 1, -5.5f);
+
+    private static final Sonido[] ALL_SOUNDS = {
+        Disparo, propulsor, explosion, playerHit, wave, gameOver,
+        ufoLaser, ufoEnter, dash, powerUp, extraLife, espacio
+    };
 
     private static volatile boolean muted = false;
 
@@ -36,8 +42,15 @@ public class Sonidos {
         }
     }
 
+    public static void closeAll() {
+        for (Sonido s : ALL_SOUNDS) {
+            s.close();
+        }
+    }
+
     public static class Sonido {
         private final Clip[] pool;
+        private final int loadedCount;
         private final float baseGainDb;
         private int nextIdx = 0;
         private float fadeLevel = 0.0f;
@@ -45,23 +58,28 @@ public class Sonidos {
         public Sonido(String path, int poolSize, float gainDb) {
             this.baseGainDb = gainDb;
             pool = new Clip[Math.max(1, poolSize)];
-            try {
-                URL url = Sonidos.class.getResource(path);
-                if (url != null) {
-                    for (int i = 0; i < pool.length; i++) {
-                        try (AudioInputStream ais = AudioSystem.getAudioInputStream(url)) {
-                            Clip c = AudioSystem.getClip();
-                            c.open(ais);
-                            applyGain(c, gainDb);
-                            pool[i] = c;
+            int opened = 0;
+            URL url = Sonidos.class.getResource(path);
+            if (url != null) {
+                for (int i = 0; i < pool.length; i++) {
+                    Clip c = null;
+                    try (AudioInputStream ais = AudioSystem.getAudioInputStream(url)) {
+                        c = AudioSystem.getClip();
+                        c.open(ais);
+                        applyGain(c, gainDb);
+                        pool[opened++] = c;
+                    } catch (Exception e) {
+                        if (c != null) {
+                            try {
+                                c.close();
+                            } catch (Exception ignored) {
+                            }
                         }
+                        break;
                     }
                 }
-            } catch (Exception e) {
-                for (int i = 0; i < pool.length; i++) {
-                    pool[i] = null;
-                }
             }
+            this.loadedCount = opened;
         }
 
         private static void applyGain(Clip clip, float gainDb) {
@@ -76,11 +94,11 @@ public class Sonidos {
         }
 
         public synchronized void play() {
-            if (muted) {
+            if (muted || loadedCount == 0) {
                 return;
             }
             Clip clip = pool[nextIdx];
-            nextIdx = (nextIdx + 1) % pool.length;
+            nextIdx = (nextIdx + 1) % loadedCount;
             if (clip == null) {
                 return;
             }
@@ -149,8 +167,22 @@ public class Sonidos {
             }
         }
 
+        public synchronized void close() {
+            stop();
+            for (int i = 0; i < loadedCount; i++) {
+                Clip clip = pool[i];
+                if (clip != null) {
+                    try {
+                        clip.close();
+                    } catch (Exception ignored) {
+                    }
+                    pool[i] = null;
+                }
+            }
+        }
+
         public boolean isLoaded() {
-            return pool[0] != null;
+            return loadedCount > 0 && pool[0] != null;
         }
     }
 }

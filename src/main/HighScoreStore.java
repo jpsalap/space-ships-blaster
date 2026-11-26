@@ -4,8 +4,11 @@ import GameObjects.ShipStyle;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -70,19 +73,22 @@ public final class HighScoreStore {
         if (file == null || !file.isFile()) {
             return;
         }
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) continue;
                 String[] parts = trimmed.split(",");
                 if (parts.length >= 3) {
-                    int score = Integer.parseInt(parts[0].trim());
-                    int wave = Integer.parseInt(parts[1].trim());
-                    String ship = parts[2].trim();
-                    String name = (parts.length >= 4) ? parts[3].trim() : "PILOT";
-                    if (score > 0 && wave > 0) {
-                        entries.add(new Entry(name, score, wave, ship));
+                    try {
+                        int score = Integer.parseInt(parts[0].trim());
+                        int wave = Integer.parseInt(parts[1].trim());
+                        String ship = parts[2].trim();
+                        String name = (parts.length >= 4) ? parts[3].trim() : "PILOT";
+                        if (score > 0 && wave > 0) {
+                            entries.add(new Entry(name, score, wave, ship));
+                        }
+                    } catch (NumberFormatException ignored) {
                     }
                 }
             }
@@ -100,7 +106,7 @@ public final class HighScoreStore {
 
     private void save() {
         if (file == null) return;
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(file))) {
+        try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))) {
             for (Entry e : entries) {
                 bw.write(e.score + "," + e.wave + "," + e.shipName + "," + e.playerName);
                 bw.newLine();

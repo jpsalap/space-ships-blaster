@@ -536,7 +536,7 @@ public final class Estado_juego {
                     }
                 }
             } else {
-                if (!restartArmed && !Keyboard.enter && !Keyboard.shoot && System.currentTimeMillis() - gameOverTime >= 350) {
+                if (!restartArmed && !Keyboard.enter && !Keyboard.shoot && !Keyboard.escape && System.currentTimeMillis() - gameOverTime >= 350) {
                     restartArmed = true;
                 }
                 if (restartArmed && Keyboard.titlePressed) {
@@ -866,8 +866,10 @@ public final class Estado_juego {
     public boolean isPaused() { return paused; }
     public boolean isGameOver() { return gameOver; }
     public boolean isEnteringName() { return enteringName; }
+    public boolean isRestartArmed() { return restartArmed; }
     public String getPilotNameInput() { return pilotNameInput.toString(); }
     public boolean shouldRestart() { return gameOver && !enteringName && restartArmed && (Keyboard.enter || Keyboard.shoot); }
+    public boolean shouldQuitFromGameOver() { return gameOver && !enteringName && restartArmed && Keyboard.escapePressed; }
     public boolean shouldReturnToTitle() { return returnToTitle; }
     public int getHighScore() { return highScore; }
     public int getPuntaje() { return puntaje; }
