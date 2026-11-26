@@ -1,0 +1,54 @@
+name: Sync GitHub Release Notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional release tag to update (e.g. v1.1.2). Leave blank to update all published releases.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  sync-notes:
+    name: Update Release Notes from CHANGELOG.md
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync GitHub Release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          INPUT_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "$INPUT_TAG" ]]; then
+            RAW="${INPUT_TAG#v}"
+            TAGS=("v${RAW}")
+          else
+            mapfile -t TAGS < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
+          fi
+
+          if [[ ${#TAGS[@]} -eq 0 ]]; then
+            echo "No published GitHub releases found."
+            exit 0
+          fi
+
+          for TAG in "${TAGS[@]}"; do
+            echo "=== Updating release notes for ${TAG} ==="
+            gh release view "$TAG" --json assets --jq '.assets[].name' > release-assets.txt
+            python3 .github/scripts/build_release_notes.py \
+              --tag "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --assets-file release-assets.txt \
+              --output release-notes.md
+            gh release edit "$TAG" --notes-file release-notes.md
+          done

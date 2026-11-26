@@ -188,6 +188,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
@@ -195,36 +197,34 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Generate release notes
+        env:
+          TAG: ${{ needs.build-jar.outputs.tag }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          python3 .github/scripts/build_release_notes.py \
+            --tag "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --assets-dir release-assets \
+            --output release-notes.md
+          cat release-notes.md
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.build-jar.outputs.tag }}
+          TARGET_SHA: ${{ github.sha }}
         shell: bash
         run: |
           ls -lh release-assets/
-          cat << 'EOF' > release-notes.md
-          ## Space Ships Blaster ${{ needs.build-jar.outputs.tag }}
-
-          ### Standalone Downloads (No Java Required)
-          - **macOS (Apple Silicon / M1–M4):** Download `...-macos-arm64.dmg`, drag **Space Ships Blaster.app** to Applications.
-          - **macOS (Intel):** Download `...-macos-x64.dmg`, drag **Space Ships Blaster.app** to Applications.
-            *(First launch on unsigned Mac builds: right-click → **Open**, or run `xattr -cr "/Applications/Space Ships Blaster.app"`.)*
-          - **Windows (x64):** Download `.zip`, extract, and run **`Space Ships Blaster.exe`**.
-          - **Linux (x64):** Download `.tar.gz`, extract, and run **`./Space\ Ships\ Blaster/bin/Space\ Ships\ Blaster`**.
-
-          ### Universal JAR (Requires Java 8+)
-          - Download **`SpaceShipsBlaster.jar`** and run:
-            ```bash
-            java -jar SpaceShipsBlaster.jar
-            ```
-          EOF
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" release-assets/* --clobber
             gh release edit "$TAG" --notes-file release-notes.md
           else
             gh release create "$TAG" release-assets/* \
-              --target "${{ github.sha }}" \
+              --target "$TARGET_SHA" \
               --title "Space Ships Blaster $TAG" \
               --notes-file release-notes.md
           fi

@@ -64,10 +64,11 @@ This repository includes a multi-platform release workflow ([.github/workflows/r
 
 - **Automatic release via tag:**
   ```bash
-  git tag v1.0.0
-  git push origin v1.0.0
+  git tag v1.2.0
+  git push origin v1.2.0
   ```
-- **Manual release:** Open the **Actions → Release Standalone Builds → Run workflow** tab on GitHub and enter a version (e.g. `1.0.0`).
+- **Manual release:** Open the **Actions → Release Standalone Builds → Run workflow** tab on GitHub and enter a version (e.g. `1.2.0`).
+- **Release Notes & Changelog:** See [CHANGELOG.md](CHANGELOG.md) for version history. When publishing a release, the workflow automatically pulls the matching version's entry from `CHANGELOG.md` (falling back to commits since the previous tag if no entry exists) and adds a full GitHub comparison link. To backfill or refresh notes on already-published releases without rebuilding binaries, run **Actions → Sync GitHub Release Notes → Run workflow** ([.github/workflows/sync-release-notes.yml](.github/workflows/sync-release-notes.yml)).
 
 ## Project Structure
 
