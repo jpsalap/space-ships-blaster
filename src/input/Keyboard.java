@@ -13,15 +13,16 @@ public class Keyboard implements KeyListener, FocusListener {
     private final StringBuilder typedBuffer = new StringBuilder();
     private int pendingBackspaces = 0;
 
-    public static boolean up, left, right, shoot, enter, escape;
+    public static boolean up, down, left, right, shoot, enter, escape;
     public static boolean leftPressed, rightPressed, enterPressed, shootPressed, escapePressed;
     public static boolean pausePressed, mutePressed, fpsPressed, titlePressed;
-    public static boolean dashPressed, scoresPressed;
+    public static boolean dashPressed, scoresPressed, controlsPressed;
     public static String frameTypedChars = "";
     public static int frameBackspaces = 0;
 
     public Keyboard() {
         up = false;
+        down = false;
         left = false;
         right = false;
         shoot = false;
@@ -34,8 +35,9 @@ public class Keyboard implements KeyListener, FocusListener {
             justPressed[i] = keys[i] && !prevKeys[i];
             prevKeys[i] = keys[i];
         }
-        // Classic Asteroids controls: Arrows OR WASD (no reverse)
+        // Arrows OR WASD (down/S only used in Direct 8-Way and Mouse Aim modes)
         up = keys[KeyEvent.VK_UP] || keys[KeyEvent.VK_W];
+        down = keys[KeyEvent.VK_DOWN] || keys[KeyEvent.VK_S];
         left = keys[KeyEvent.VK_LEFT] || keys[KeyEvent.VK_A];
         right = keys[KeyEvent.VK_RIGHT] || keys[KeyEvent.VK_D];
         shoot = keys[KeyEvent.VK_SPACE];
@@ -53,6 +55,7 @@ public class Keyboard implements KeyListener, FocusListener {
         titlePressed = justPressed[KeyEvent.VK_T];
         dashPressed = justPressed[KeyEvent.VK_SHIFT];
         scoresPressed = justPressed[KeyEvent.VK_H];
+        controlsPressed = justPressed[KeyEvent.VK_C];
 
         if (typedBuffer.length() > 0) {
             frameTypedChars = typedBuffer.toString();
@@ -72,7 +75,8 @@ public class Keyboard implements KeyListener, FocusListener {
             KeyEvent.VK_P,
             KeyEvent.VK_T,
             KeyEvent.VK_SHIFT,
-            KeyEvent.VK_H
+            KeyEvent.VK_H,
+            KeyEvent.VK_C
         };
         for (int code : toClear) {
             keys[code] = false;
@@ -89,6 +93,7 @@ public class Keyboard implements KeyListener, FocusListener {
         titlePressed = false;
         dashPressed = false;
         scoresPressed = false;
+        controlsPressed = false;
         typedBuffer.setLength(0);
         pendingBackspaces = 0;
         frameTypedChars = "";
@@ -102,6 +107,7 @@ public class Keyboard implements KeyListener, FocusListener {
             justPressed[i] = false;
         }
         up = false;
+        down = false;
         left = false;
         right = false;
         shoot = false;
@@ -118,6 +124,7 @@ public class Keyboard implements KeyListener, FocusListener {
         titlePressed = false;
         dashPressed = false;
         scoresPressed = false;
+        controlsPressed = false;
         typedBuffer.setLength(0);
         pendingBackspaces = 0;
         frameTypedChars = "";

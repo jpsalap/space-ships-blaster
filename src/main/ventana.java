@@ -2,18 +2,25 @@ package main;
 
 import java.awt.Canvas;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferStrategy;
+import java.awt.image.BufferedImage;
 import javax.swing.JFrame;
 import GameObjects.Constantes;
 import GameObjects.ShipStyle;
 import graphics.Assets;
 import graphics.Starfield;
+import input.ControlScheme;
 import input.Keyboard;
+import input.MouseInput;
 import math.Vector2D;
 import states.Estado_juego;
 import states.TitleScreen;
@@ -47,8 +54,12 @@ public final class ventana extends JFrame implements Runnable {
     private transient Estado_juego gamestate;
     private Screen currentScreen = Screen.TITLE;
     private ShipStyle selectedShip = ShipStyle.BLUE;
+    private ControlScheme controlScheme = ControlScheme.CLASSIC;
     private int highScore = 0;
     private final transient Keyboard keyb;
+    private final transient MouseInput mouse;
+    private final transient Cursor blankCursor;
+    private boolean cursorHidden = false;
 
     public ventana() {
         setTitle("Space Ships Blaster");
@@ -57,6 +68,8 @@ public final class ventana extends JFrame implements Runnable {
 
         canvas = new Canvas();
         keyb = new Keyboard();
+        mouse = new MouseInput();
+        blankCursor = createBlankCursor();
 
         canvas.setPreferredSize(new Dimension(Constantes.WIDTH, Constantes.HEIGHT));
         canvas.setMaximumSize(new Dimension(Constantes.WIDTH, Constantes.HEIGHT));
@@ -68,6 +81,9 @@ public final class ventana extends JFrame implements Runnable {
         setLocationRelativeTo(null);
         canvas.addKeyListener(keyb);
         canvas.addFocusListener(keyb);
+        canvas.addMouseListener(mouse);
+        canvas.addMouseMotionListener(mouse);
+        canvas.addFocusListener(mouse);
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -80,12 +96,28 @@ public final class ventana extends JFrame implements Runnable {
         canvas.requestFocus();
     }
 
+    private static Cursor createBlankCursor() {
+        if (GraphicsEnvironment.isHeadless()) {
+            return Cursor.getDefaultCursor();
+        }
+        BufferedImage cursorImg = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        return Toolkit.getDefaultToolkit().createCustomCursor(cursorImg, new Point(0, 0), "blank");
+    }
+
+    private void updateCursorVisibility(boolean hide) {
+        if (hide != cursorHidden) {
+            cursorHidden = hide;
+            canvas.setCursor(hide ? blankCursor : Cursor.getDefaultCursor());
+        }
+    }
+
     public static void main(String[] args) {
         new ventana().start();
     }
 
     private void update() {
         keyb.update();
+        mouse.update();
         boolean typingName = (currentScreen == Screen.PLAYING && gamestate != null && gamestate.isEnteringName());
         if (!typingName && Keyboard.mutePressed) {
             Sonidos.toggleMute();
@@ -95,13 +127,16 @@ public final class ventana extends JFrame implements Runnable {
         }
 
         if (currentScreen == Screen.TITLE) {
+            updateCursorVisibility(false);
             starfield.update(-0.45, 0.25);
             titleScreen.update();
             selectedShip = titleScreen.getSelectedShip();
+            controlScheme = titleScreen.getControlScheme();
             if (titleScreen.shouldStart()) {
                 keyb.clearActionKeys();
+                mouse.clearButtons();
                 titleScreen.resetRequests();
-                gamestate = new Estado_juego(selectedShip, highScore, highScoreStore);
+                gamestate = new Estado_juego(selectedShip, highScore, highScoreStore, controlScheme);
                 currentScreen = Screen.PLAYING;
             } else if (titleScreen.shouldQuit()) {
                 exitGame();
@@ -110,7 +145,11 @@ public final class ventana extends JFrame implements Runnable {
         }
 
         gamestate.update();
+        controlScheme = gamestate.getControlScheme();
         highScore = Math.max(highScore, gamestate.getHighScore());
+
+        boolean hideCursor = (controlScheme == ControlScheme.MOUSE_AIM && !gamestate.isPaused() && !gamestate.isGameOver());
+        updateCursorVisibility(hideCursor);
 
         if (!gamestate.isPaused()) {
             Vector2D vel = gamestate.getPlayerVelocity();
@@ -119,11 +158,14 @@ public final class ventana extends JFrame implements Runnable {
 
         if (gamestate.shouldRestart()) {
             keyb.clearActionKeys();
-            gamestate = new Estado_juego(selectedShip, highScore, highScoreStore);
+            mouse.clearButtons();
+            gamestate = new Estado_juego(selectedShip, highScore, highScoreStore, controlScheme);
         } else if (gamestate.shouldReturnToTitle()) {
             keyb.clearActionKeys();
+            mouse.clearButtons();
             Sonidos.propulsor.stop();
             titleScreen.setHighScore(highScore);
+            titleScreen.setControlScheme(controlScheme);
             titleScreen.resetRequests();
             currentScreen = Screen.TITLE;
         } else if (gamestate.isGameOver() && !gamestate.isEnteringName() && Keyboard.escapePressed) {
@@ -169,8 +211,9 @@ public final class ventana extends JFrame implements Runnable {
         Assets.inicio();
         highScoreStore = new HighScoreStore();
         highScore = highScoreStore.getTopScore();
+        controlScheme = ControlScheme.loadSaved();
         starfield = new Starfield(Constantes.WIDTH, Constantes.HEIGHT);
-        titleScreen = new TitleScreen(selectedShip, highScore, highScoreStore);
+        titleScreen = new TitleScreen(selectedShip, highScore, highScoreStore, controlScheme);
         currentScreen = Screen.TITLE;
         Sonidos.espacio.loop();
     }

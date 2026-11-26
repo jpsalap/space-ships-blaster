@@ -3,6 +3,7 @@ package states;
 import GameObjects.Constantes;
 import GameObjects.ShipStyle;
 import graphics.Assets;
+import input.ControlScheme;
 import input.Keyboard;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -27,6 +28,7 @@ public class TitleScreen {
     private final AmbientRock[] rocks;
     private final HighScoreStore highScoreStore;
     private ShipStyle selectedShip;
+    private ControlScheme controlScheme;
     private int highScore;
     private int tick = 0;
     private boolean showScores = false;
@@ -34,11 +36,16 @@ public class TitleScreen {
     private boolean quitRequested = false;
 
     public TitleScreen(ShipStyle initialShip, int highScore) {
-        this(initialShip, highScore, null);
+        this(initialShip, highScore, null, ControlScheme.CLASSIC);
     }
 
     public TitleScreen(ShipStyle initialShip, int highScore, HighScoreStore highScoreStore) {
+        this(initialShip, highScore, highScoreStore, ControlScheme.CLASSIC);
+    }
+
+    public TitleScreen(ShipStyle initialShip, int highScore, HighScoreStore highScoreStore, ControlScheme controlScheme) {
         this.selectedShip = initialShip != null ? initialShip : ShipStyle.BLUE;
+        this.controlScheme = controlScheme != null ? controlScheme : ControlScheme.CLASSIC;
         this.highScoreStore = highScoreStore;
         int stored = (highScoreStore != null) ? highScoreStore.getTopScore() : 0;
         this.highScore = Math.max(highScore, stored);
@@ -64,6 +71,16 @@ public class TitleScreen {
     public void setHighScore(int highScore) {
         int stored = (highScoreStore != null) ? highScoreStore.getTopScore() : 0;
         this.highScore = Math.max(Math.max(this.highScore, highScore), stored);
+    }
+
+    public void setControlScheme(ControlScheme scheme) {
+        if (scheme != null) {
+            this.controlScheme = scheme;
+        }
+    }
+
+    public ControlScheme getControlScheme() {
+        return controlScheme;
     }
 
     public void resetRequests() {
@@ -102,6 +119,12 @@ public class TitleScreen {
             Sonidos.Disparo.play();
         } else if (Keyboard.rightPressed) {
             selectedShip = selectedShip.next();
+            Sonidos.Disparo.play();
+        }
+
+        if (Keyboard.controlsPressed) {
+            controlScheme = controlScheme.next();
+            controlScheme.save();
             Sonidos.Disparo.play();
         }
 
@@ -203,15 +226,18 @@ public class TitleScreen {
         int pulseAlpha = 140 + (int) (115 * (0.5 + 0.5 * Math.sin(tick * 0.08)));
         g2d.setFont(Assets.fontMed);
         g2d.setColor(new Color(255, 255, 255, pulseAlpha));
-        drawCentered(g2d, "PRESS ENTER OR SPACE TO PLAY", 568);
+        drawCentered(g2d, "PRESS ENTER OR SPACE TO PLAY", 554);
 
-        // Controls footer
+        // Control Scheme Selector pills (press C to switch)
+        drawControlSelector(g2d, 586, accent);
+
+        // Active control hint & secondary shortcuts
         g2d.setFont(Assets.fontTiny);
-        g2d.setColor(new Color(165, 180, 205));
-        drawCentered(g2d, "WASD / ARROWS: FLY   |   SPACE: SHOOT   |   SHIFT: DASH   |   H: TOP SCORES   |   M: " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE"), 625);
+        g2d.setColor(new Color(175, 192, 220));
+        drawCentered(g2d, controlScheme.getHint(), 638);
 
-        g2d.setColor(new Color(120, 135, 160));
-        drawCentered(g2d, "P / ESC: PAUSE   |   F3: FPS   |   ESC TO QUIT", 655);
+        g2d.setColor(new Color(125, 140, 168));
+        drawCentered(g2d, "H: TOP SCORES   |   P / ESC: PAUSE   |   M: " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE") + "   |   F3: FPS   |   ESC: QUIT", 666);
 
         if (showScores) {
             drawLeaderboardOverlay(g2d, accent);
@@ -220,6 +246,53 @@ public class TitleScreen {
         g2d.setFont(prevFont);
         g2d.setColor(prevColor);
         g2d.setStroke(prevStroke);
+    }
+
+    private void drawControlSelector(Graphics2D g2d, int y, Color accent) {
+        ControlScheme[] modes = ControlScheme.values();
+        g2d.setFont(Assets.fontTiny);
+        FontMetrics fm = g2d.getFontMetrics();
+        String prefix = "CONTROLS (C): ";
+        int prefixW = fm.stringWidth(prefix);
+        int pillPadX = 14;
+        int pillH = 24;
+        int pillGap = 10;
+
+        int totalW = prefixW;
+        int[] pillWidths = new int[modes.length];
+        for (int i = 0; i < modes.length; i++) {
+            pillWidths[i] = fm.stringWidth(modes[i].getLabel()) + pillPadX * 2;
+            totalW += pillWidths[i];
+            if (i < modes.length - 1) totalW += pillGap;
+        }
+
+        int x = (Constantes.WIDTH - totalW) / 2;
+        g2d.setColor(new Color(185, 200, 225));
+        g2d.drawString(prefix, x, y + 16);
+        x += prefixW;
+
+        for (int i = 0; i < modes.length; i++) {
+            boolean active = (modes[i] == controlScheme);
+            int pw = pillWidths[i];
+            if (active) {
+                g2d.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 60));
+                g2d.fillRoundRect(x, y, pw, pillH, 10, 10);
+                g2d.setStroke(new BasicStroke(1.8f));
+                g2d.setColor(accent);
+                g2d.drawRoundRect(x, y, pw, pillH, 10, 10);
+                g2d.setColor(Color.WHITE);
+            } else {
+                g2d.setColor(new Color(16, 22, 42, 160));
+                g2d.fillRoundRect(x, y, pw, pillH, 10, 10);
+                g2d.setStroke(new BasicStroke(1.0f));
+                g2d.setColor(new Color(80, 95, 125, 130));
+                g2d.drawRoundRect(x, y, pw, pillH, 10, 10);
+                g2d.setColor(new Color(145, 160, 188));
+            }
+            String lbl = modes[i].getLabel();
+            g2d.drawString(lbl, x + (pw - fm.stringWidth(lbl)) / 2, y + 16);
+            x += pw + pillGap;
+        }
     }
 
     private void drawLeaderboardOverlay(Graphics2D g2d, Color accent) {

@@ -1,6 +1,8 @@
 package GameObjects;
 
+import input.ControlScheme;
 import input.Keyboard;
+import input.MouseInput;
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
@@ -46,6 +48,7 @@ public class Jugador extends Moving_obj {
     private boolean spawning, visible;
     private Crono spawningTime, titilar;
     private ShipStyle shipStyle;
+    private ControlScheme controlScheme = ControlScheme.CLASSIC;
     private int flameTick = 0;
     private double thrustVisual = 0.0;
 
@@ -63,17 +66,32 @@ public class Jugador extends Moving_obj {
     }
 
     public Jugador(Vector2D posicion, Vector2D velocidad, double maxV, BufferedImage textura, Estado_juego gameState, ShipStyle shipStyle) {
+        this(posicion, velocidad, maxV, textura, gameState, shipStyle, ControlScheme.CLASSIC);
+    }
+
+    public Jugador(Vector2D posicion, Vector2D velocidad, double maxV, BufferedImage textura, Estado_juego gameState, ShipStyle shipStyle, ControlScheme controlScheme) {
         super(posicion, velocidad, shipStyle != null ? shipStyle.getMaxSpeed() : maxV, textura, gameState);
         this.width = SHIP_SIZE;
         this.height = SHIP_SIZE;
         this.gameState = gameState;
         this.shipStyle = shipStyle != null ? shipStyle : ShipStyle.BLUE;
+        this.controlScheme = controlScheme != null ? controlScheme : ControlScheme.CLASSIC;
         direccion = new Vector2D(0, -1);
         aceleracion = new Vector2D();
         firerate = new Crono();
         spawningTime = new Crono();
         titilar = new Crono();
         visible = true;
+    }
+
+    public void setControlScheme(ControlScheme scheme) {
+        if (scheme != null) {
+            this.controlScheme = scheme;
+        }
+    }
+
+    public ControlScheme getControlScheme() {
+        return controlScheme;
     }
 
     public void activateShield() { shieldFrames = POWERUP_DURATION; }
@@ -121,25 +139,80 @@ public class Jugador extends Moving_obj {
             }
         }
 
-        if (Keyboard.right) {
-            angulo += shipStyle.getTurnSpeed();
-        }
-        if (Keyboard.left) {
-            angulo -= shipStyle.getTurnSpeed();
-        }
-        direccion = direccion.setDireccion(angulo - Math.PI / 2);
+        // Determine movement / aiming according to the selected control scheme
+        boolean thrustInput = false;
+        Vector2D thrustDir = direccion;
+        Vector2D dashTargetDir = direccion;
+        boolean shootInput = Keyboard.shoot;
+        boolean dashInput = Keyboard.dashPressed;
 
-        // Trigger Warp Dash on Shift
-        if (Keyboard.dashPressed && dashCooldown <= 0 && dashFrames <= 0 && !spawning) {
+        if (controlScheme == ControlScheme.CLASSIC) {
+            if (Keyboard.right) {
+                angulo += shipStyle.getTurnSpeed();
+            }
+            if (Keyboard.left) {
+                angulo -= shipStyle.getTurnSpeed();
+            }
+            direccion = direccion.setDireccion(angulo - Math.PI / 2);
+            thrustInput = Keyboard.up;
+            thrustDir = direccion;
+            dashTargetDir = direccion;
+        } else if (controlScheme == ControlScheme.DIRECT) {
+            double ix = (Keyboard.right ? 1.0 : 0.0) - (Keyboard.left ? 1.0 : 0.0);
+            double iy = (Keyboard.down ? 1.0 : 0.0) - (Keyboard.up ? 1.0 : 0.0);
+            if (ix != 0.0 || iy != 0.0) {
+                Vector2D moveDir = new Vector2D(ix, iy).normalizar();
+                double targetAngle = Math.atan2(moveDir.getY(), moveDir.getX()) + Math.PI / 2.0;
+                double diff = wrapAngle(targetAngle - angulo);
+                double maxStep = shipStyle.getTurnSpeed() * 2.4;
+                if (Math.abs(diff) <= maxStep) {
+                    angulo = targetAngle;
+                } else {
+                    angulo += Math.signum(diff) * maxStep;
+                }
+                thrustInput = true;
+                thrustDir = moveDir;
+                dashTargetDir = moveDir;
+            }
+            direccion = direccion.setDireccion(angulo - Math.PI / 2);
+            if (!thrustInput) {
+                dashTargetDir = direccion;
+            }
+        } else {
+            // MOUSE_AIM: aim continuously at cursor, fly freely in 8 directions
+            Vector2D center = getCenter();
+            double dx = MouseInput.x - center.getX();
+            double dy = MouseInput.y - center.getY();
+            if (dx * dx + dy * dy > 16.0) {
+                angulo = Math.atan2(dy, dx) + Math.PI / 2.0;
+            }
+            direccion = direccion.setDireccion(angulo - Math.PI / 2);
+
+            double ix = (Keyboard.right ? 1.0 : 0.0) - (Keyboard.left ? 1.0 : 0.0);
+            double iy = (Keyboard.down ? 1.0 : 0.0) - (Keyboard.up ? 1.0 : 0.0);
+            if (ix != 0.0 || iy != 0.0) {
+                Vector2D moveDir = new Vector2D(ix, iy).normalizar();
+                thrustInput = true;
+                thrustDir = moveDir;
+                dashTargetDir = moveDir;
+            } else {
+                dashTargetDir = direccion;
+            }
+            shootInput = Keyboard.shoot || MouseInput.leftDown;
+            dashInput = Keyboard.dashPressed || MouseInput.rightPressed;
+        }
+
+        // Trigger Warp Dash
+        if (dashInput && dashCooldown <= 0 && dashFrames <= 0 && !spawning) {
             dashFrames = DASH_DURATION;
             dashCooldown = DASH_COOLDOWN;
-            dashDir = new Vector2D(direccion.getX(), direccion.getY());
+            dashDir = new Vector2D(dashTargetDir.getX(), dashTargetDir.getY());
             Sonidos.dash.play();
             gameState.onPlayerDash(getCenter(), dashDir, shipStyle.getAccentColor());
         }
 
         // Fire single or triple-spread laser
-        if (Keyboard.shoot && !firerate.isRunning() && !spawning) {
+        if (shootInput && !firerate.isRunning() && !spawning) {
             int cooldown = shipStyle.getFireCooldownMs();
             if (rapidFireFrames > 0) {
                 cooldown = Math.max(45, cooldown / 2);
@@ -188,8 +261,8 @@ public class Jugador extends Moving_obj {
                 velocidad = dashDir.scale(maxV * 0.85);
             }
             Sonidos.propulsor.updateLoopFade(false);
-        } else if (Keyboard.up) {
-            aceleracion = direccion.scale(shipAcc);
+        } else if (thrustInput) {
+            aceleracion = thrustDir.scale(shipAcc);
             acelerando = true;
             thrustVisual = Math.min(1.0, thrustVisual + 0.28);
             emitExhaustParticles();
@@ -411,6 +484,12 @@ public class Jugador extends Moving_obj {
         g2d.setColor(new Color(120, 240, 255, 195));
         g2d.drawOval((int) (cx - r), (int) (cy - r), (int) (r * 2), (int) (r * 2));
         g2d.setStroke(prevStroke);
+    }
+
+    private static double wrapAngle(double a) {
+        while (a > Math.PI) a -= Math.PI * 2.0;
+        while (a < -Math.PI) a += Math.PI * 2.0;
+        return a;
     }
 
     public boolean isSpawning() { return spawning; }

@@ -23,12 +23,15 @@ Originally built in **2018** as a freshman-year *Algorithms & Programming* final
 
 ## Controls
 
+Press **`C`** on the Title Screen or inside the Pause Menu to switch between **3 control modes** (your choice is saved automatically):
+
+- **Classic *(Asteroids style)*:** `←`/`→` or `A`/`D` rotates, `↑` or `W` thrusts forward, `Space` shoots, `Shift` dashes.
+- **Direct 8-Way:** `WASD` or Arrow keys fly directly in any of 8 directions (ship automatically faces where you move), `Space` shoots, `Shift` dashes.
+- **Mouse Aim *(Twin-Stick)*:** `WASD` or Arrow keys fly in 8 directions while the ship aims at your **mouse cursor** (with a targeting crosshair), **Left Click** (or `Space`) shoots, **Right Click** (or `Shift`) dashes.
+
 | Key | Action |
 | --- | --- |
-| `←` / `→` or `A` / `D` | Rotate ship *(or select starfighter on Title Screen)* |
-| `↑` or `W` | Thrust forward *(classic Asteroids flight — no reverse)* |
-| `Space` | Fire laser *(or start / restart)* |
-| `Shift` | Warp Dash *(short cooldown dodge burst)* |
+| `C` | Switch Control Mode *(Title Screen & Pause Menu)* |
 | `Enter` | Start game / Restart / Return to Title *(from Pause)* |
 | `P` / `Esc` | Pause / Resume *(or Quit on Title / Game Over)* |
 | `H` | View Top 5 High Scores *(on Title Screen)* |

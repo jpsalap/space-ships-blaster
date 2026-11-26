@@ -21,7 +21,9 @@ import GameObjects.Ufo;
 import graphics.Animacion;
 import graphics.Assets;
 import graphics.Particle;
+import input.ControlScheme;
 import input.Keyboard;
+import input.MouseInput;
 import main.HighScoreStore;
 import main.Sonidos;
 import math.Vector2D;
@@ -73,6 +75,7 @@ public final class Estado_juego {
     private int ufoSpawnCooldown = 0;
 
     private ShipStyle shipStyle;
+    private ControlScheme controlScheme;
     private boolean paused = false;
     private boolean gameOver = false;
     private boolean enteringName = false;
@@ -86,16 +89,21 @@ public final class Estado_juego {
     private double shakeMagnitude = 0;
 
     public Estado_juego() {
-        this(ShipStyle.BLUE, 0, null);
+        this(ShipStyle.BLUE, 0, null, ControlScheme.CLASSIC);
     }
 
     public Estado_juego(ShipStyle shipStyle, int highScore) {
-        this(shipStyle, highScore, null);
+        this(shipStyle, highScore, null, ControlScheme.CLASSIC);
     }
 
     public Estado_juego(ShipStyle shipStyle, int highScore, HighScoreStore highScoreStore) {
+        this(shipStyle, highScore, highScoreStore, ControlScheme.CLASSIC);
+    }
+
+    public Estado_juego(ShipStyle shipStyle, int highScore, HighScoreStore highScoreStore, ControlScheme controlScheme) {
         lives = 3;
         this.shipStyle = shipStyle != null ? shipStyle : ShipStyle.BLUE;
+        this.controlScheme = controlScheme != null ? controlScheme : ControlScheme.CLASSIC;
         this.highScoreStore = highScoreStore;
         int storedBest = (highScoreStore != null) ? highScoreStore.getTopScore() : 0;
         this.highScore = Math.max(Math.max(0, highScore), storedBest);
@@ -106,11 +114,16 @@ public final class Estado_juego {
             this.shipStyle.getMaxSpeed(),
             shipTex,
             this,
-            this.shipStyle
+            this.shipStyle,
+            this.controlScheme
         );
         moving_obj.add(player);
         asteroids = 2;
         startWave();
+    }
+
+    public ControlScheme getControlScheme() {
+        return controlScheme;
     }
 
     public void addScore(int valor) {
@@ -390,7 +403,14 @@ public final class Estado_juego {
                 return;
             }
             if (paused) {
-                if (Keyboard.enterPressed || Keyboard.titlePressed) {
+                if (Keyboard.controlsPressed) {
+                    controlScheme = controlScheme.next();
+                    controlScheme.save();
+                    if (player != null) {
+                        player.setControlScheme(controlScheme);
+                    }
+                    Sonidos.Disparo.play();
+                } else if (Keyboard.enterPressed || Keyboard.titlePressed) {
                     Sonidos.propulsor.stop();
                     returnToTitle = true;
                 }
@@ -601,6 +621,10 @@ public final class Estado_juego {
         drawPowerUpAndDashBars(G2D);
         drawWaveHud(G2D);
 
+        if (controlScheme == ControlScheme.MOUSE_AIM && !paused && !gameOver && MouseInput.inside) {
+            drawMouseCrosshair(G2D);
+        }
+
         if (waveBannerTimer > 0 && !gameOver) {
             drawWaveBanner(G2D);
         }
@@ -621,7 +645,8 @@ public final class Estado_juego {
         int y = 66;
         // Dash indicator
         Color dashColor = player.isDashReady() ? shipStyle.getAccentColor().brighter() : new Color(110, 125, 155);
-        String dashLabel = player.isDashReady() ? "DASH READY (SHIFT)" : "DASH";
+        String dashKey = (controlScheme == ControlScheme.MOUSE_AIM) ? "R-CLICK / SHIFT" : "SHIFT";
+        String dashLabel = player.isDashReady() ? "DASH READY (" + dashKey + ")" : "DASH";
         drawStatusBar(g2d, x, y, dashLabel, player.getDashCooldownRatio(), dashColor);
         y += 24;
 
@@ -685,24 +710,50 @@ public final class Estado_juego {
         }
     }
 
+    private void drawMouseCrosshair(Graphics2D g2d) {
+        int mx = MouseInput.x;
+        int my = MouseInput.y;
+        Color accent = shipStyle.getAccentColor();
+        java.awt.Stroke prev = g2d.getStroke();
+        g2d.setStroke(new java.awt.BasicStroke(1.6f));
+        g2d.setColor(new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 210));
+        int r = 10;
+        g2d.drawOval(mx - r, my - r, r * 2, r * 2);
+        g2d.drawLine(mx - r - 5, my, mx - 4, my);
+        g2d.drawLine(mx + 4, my, mx + r + 5, my);
+        g2d.drawLine(mx, my - r - 5, mx, my - 4);
+        g2d.drawLine(mx, my + 4, mx, my + r + 5);
+        g2d.setColor(Color.WHITE);
+        g2d.fillOval(mx - 2, my - 2, 4, 4);
+        g2d.setStroke(prev);
+    }
+
     private void drawPaused(Graphics2D g2d) {
-        g2d.setColor(new Color(4, 6, 16, 170));
+        g2d.setColor(new Color(4, 6, 16, 175));
         g2d.fillRect(0, 0, Constantes.WIDTH, Constantes.HEIGHT);
 
         int centerY = Constantes.HEIGHT / 2;
         g2d.setFont(Assets.fontBig);
         g2d.setColor(shipStyle.getAccentColor().brighter());
-        drawCenteredString(g2d, "PAUSED", centerY - 35);
+        drawCenteredString(g2d, "PAUSED", centerY - 60);
 
         g2d.setFont(Assets.fontSmall);
         g2d.setColor(Color.WHITE);
-        drawCenteredString(g2d, "PRESS P OR ESC TO RESUME", centerY + 25);
+        drawCenteredString(g2d, "PRESS P OR ESC TO RESUME", centerY - 2);
 
+        g2d.setColor(shipStyle.getAccentColor().brighter());
+        drawCenteredString(g2d, "PRESS C FOR CONTROLS: " + controlScheme.getLabel(), centerY + 30);
+
+        g2d.setFont(Assets.fontTiny);
+        g2d.setColor(new Color(165, 185, 215));
+        drawCenteredString(g2d, controlScheme.getHint(), centerY + 54);
+
+        g2d.setFont(Assets.fontSmall);
         g2d.setColor(new Color(185, 195, 215));
-        drawCenteredString(g2d, "PRESS ENTER FOR TITLE SCREEN", centerY + 55);
+        drawCenteredString(g2d, "PRESS ENTER FOR TITLE SCREEN", centerY + 92);
 
         g2d.setColor(new Color(145, 160, 185));
-        drawCenteredString(g2d, "PRESS M TO " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE") + " SOUND", centerY + 85);
+        drawCenteredString(g2d, "PRESS M TO " + (Sonidos.isMuted() ? "UNMUTE" : "MUTE") + " SOUND", centerY + 122);
     }
 
     private void drawGameOver(Graphics2D g2d) {
